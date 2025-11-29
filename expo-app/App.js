@@ -19,11 +19,11 @@ const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#f5f5f5', overflow: 'visible' },
   header: { backgroundColor: '#007AFF', padding: 20, paddingTop: 10 },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
   headerSubtitle: { fontSize: 13, color: '#e0e0e0' },
-  content: { flex: 1, padding: 16 },
+  content: { flex: 1, padding: 16, overflow: 'visible' },
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 10 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 14 },
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 12 },
   modalText: { fontSize: 13, color: '#333', lineHeight: 20, marginBottom: 16 },
   modalCloseBtn: { backgroundColor: '#007AFF', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
-  floatingButton: { position: 'absolute', top: 12, left: 12, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5, zIndex: 999 },
+  floatingButton: { position: 'absolute', top: 12, left: 12, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 10, zIndex: 9999 },
   floatingButtonText: { fontSize: 24 },
   chatModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   chatPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', flexDirection: 'column' },
