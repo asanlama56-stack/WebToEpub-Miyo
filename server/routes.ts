@@ -36,9 +36,6 @@ export async function registerRoutes(
 
         // Create image job for background validation
         const imageJob = createImageJob(metadata?.coverUrl);
-        validateImageJob(imageJob.id).catch(err =>
-          console.error("[IMG-JOB]", imageJob.id, "validation error:", err)
-        );
 
         await storage.updateAnalysisProgress(job.id, 80);
         await storage.updateJobChapters(job.id, chapters);
