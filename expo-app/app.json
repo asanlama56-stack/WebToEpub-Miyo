@@ -9,6 +9,18 @@
       "package": "com.webtobook.offline",
       "versionCode": 1
     },
-    "plugins": []
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "cb1a02fc-5887-426e-b67d-25cef96917bd"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cb1a02fc-5887-426e-b67d-25cef96917bd"
+    },
+    "ios": {}
   }
 }
