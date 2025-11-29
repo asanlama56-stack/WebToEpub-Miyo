@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Book, Download, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -81,14 +81,16 @@ export default function Home() {
     queryKey: ["/api/jobs"],
     refetchInterval: 500,
     select: (jobs) => {
-      const analyzing = (jobs || []).find((j) => j.status === "analyzing");
-      if (analyzing) {
-        setAnalysisProgress(analyzing.progress);
-      }
-      return analyzing || null;
+      return (jobs || []).find((j) => j.status === "analyzing") || null;
     },
     enabled: analyzeMutation.isPending,
   });
+
+  useEffect(() => {
+    if (analysisJob) {
+      setAnalysisProgress(analysisJob.progress);
+    }
+  }, [analysisJob?.progress]);
 
   const downloadMutation = useMutation({
     mutationFn: async (params: {
