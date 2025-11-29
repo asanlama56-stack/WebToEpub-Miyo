@@ -10,9 +10,13 @@ import {
   Alert,
   StyleSheet,
   FlatList,
+  Modal,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+
+const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
@@ -25,10 +29,14 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 14 },
   button: { backgroundColor: '#007AFF', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
   buttonDisabled: { backgroundColor: '#ccc' },
+  aiButton: { backgroundColor: '#10B981', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 },
   buttonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  aiButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   chapterItem: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   chapterTitle: { fontSize: 13, fontWeight: '500', color: '#000' },
   chapterUrl: { fontSize: 11, color: '#999', marginTop: 4 },
+  summarizeBtn: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#10B981', borderRadius: 6 },
+  summarizeBtnText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   progressContainer: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 10 },
   progressBar: { height: 6, backgroundColor: '#e0e0e0', borderRadius: 3, marginBottom: 8 },
   progressFill: { height: 6, backgroundColor: '#007AFF', borderRadius: 3 },
@@ -38,6 +46,11 @@ const styles = StyleSheet.create({
   shareButton: { backgroundColor: '#34C759', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   shareButtonText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   selectAllButton: { color: '#007AFF', fontSize: 12, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 16, maxHeight: '80%', width: '100%' },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 12 },
+  modalText: { fontSize: 13, color: '#333', lineHeight: 20, marginBottom: 16 },
+  modalCloseBtn: { backgroundColor: '#007AFF', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
 });
 
 export default function App() {
@@ -49,6 +62,9 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [downloadedFiles, setDownloadedFiles] = useState([]);
   const [bookTitle, setBookTitle] = useState('');
+  const [summaryModal, setSummaryModal] = useState(false);
+  const [currentSummary, setCurrentSummary] = useState('');
+  const [summarizing, setSummarizing] = useState(false);
 
   const analyzeUrl = async () => {
     if (!url.trim()) {
@@ -96,7 +112,7 @@ export default function App() {
         if (href && title && title.length < 200) {
           const absoluteUrl = resolveUrl(href, baseUrl);
           if (!chapters.some(ch => ch.url === absoluteUrl)) {
-            chapters.push({ id: chapters.length, title, url: absoluteUrl });
+            chapters.push({ id: chapters.length, title, url: absoluteUrl, summary: null });
           }
         }
       }
@@ -132,37 +148,6 @@ export default function App() {
     const newSelected = new Set(selectedChapters);
     newSelected.has(id) ? newSelected.delete(id) : newSelected.add(id);
     setSelectedChapters(newSelected);
-  };
-
-  const generateTxt = async () => {
-    if (selectedChapters.size === 0) {
-      Alert.alert('Error', 'Please select at least one chapter');
-      return;
-    }
-    setGenerating(true);
-    setProgress(0);
-    try {
-      const selectedChaptersList = chapters.filter(ch => selectedChapters.has(ch.id));
-      let content = `${bookTitle}\n${'='.repeat(bookTitle.length)}\n\n`;
-      
-      for (let i = 0; i < selectedChaptersList.length; i++) {
-        const chapter = selectedChaptersList[i];
-        const chapterContent = await fetchChapterContent(chapter.url);
-        content += `\n\n${chapter.title}\n${'-'.repeat(chapter.title.length)}\n\n${chapterContent}`;
-        setProgress(Math.round(((i + 1) / selectedChaptersList.length) * 100));
-      }
-
-      const fileName = `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
-      const filePath = FileSystem.DocumentDirectory + fileName;
-      await FileSystem.writeAsStringAsync(filePath, content);
-      setDownloadedFiles([...downloadedFiles, { name: fileName, path: filePath }]);
-      Alert.alert('Success', 'Text file generated!');
-      setProgress(0);
-    } catch (error) {
-      Alert.alert('Error', 'Failed: ' + error.message);
-    } finally {
-      setGenerating(false);
-    }
   };
 
   const fetchChapterContent = async (url) => {
@@ -202,6 +187,73 @@ export default function App() {
     }
   };
 
+  const generateSummary = async (chapterId) => {
+    const chapter = chapters.find(ch => ch.id === chapterId);
+    if (!chapter) return;
+
+    setSummarizing(true);
+    try {
+      const content = await fetchChapterContent(chapter.url);
+      const summary = await callGeminiAPI(`Summarize this chapter in 2-3 sentences:\n\n${content.substring(0, 3000)}`);
+      setCurrentSummary(summary);
+      setSummaryModal(true);
+
+      // Update chapter with summary
+      const updatedChapters = chapters.map(ch => ch.id === chapterId ? { ...ch, summary } : ch);
+      setChapters(updatedChapters);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate summary: ' + error.message);
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
+  const callGeminiAPI = async (prompt) => {
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 500 },
+      }),
+    });
+
+    if (!response.ok) throw new Error('Gemini API error');
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+  };
+
+  const generateTxt = async () => {
+    if (selectedChapters.size === 0) {
+      Alert.alert('Error', 'Please select at least one chapter');
+      return;
+    }
+    setGenerating(true);
+    setProgress(0);
+    try {
+      const selectedChaptersList = chapters.filter(ch => selectedChapters.has(ch.id));
+      let content = `${bookTitle}\n${'='.repeat(bookTitle.length)}\n\n`;
+      
+      for (let i = 0; i < selectedChaptersList.length; i++) {
+        const chapter = selectedChaptersList[i];
+        const chapterContent = await fetchChapterContent(chapter.url);
+        content += `\n\n${chapter.title}\n${'-'.repeat(chapter.title.length)}\n\n${chapterContent}`;
+        setProgress(Math.round(((i + 1) / selectedChaptersList.length) * 100));
+      }
+
+      const fileName = `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+      const filePath = FileSystem.DocumentDirectory + fileName;
+      await FileSystem.writeAsStringAsync(filePath, content);
+      setDownloadedFiles([...downloadedFiles, { name: fileName, path: filePath }]);
+      Alert.alert('Success', 'Text file generated!');
+      setProgress(0);
+    } catch (error) {
+      Alert.alert('Error', 'Failed: ' + error.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const shareFile = async (filePath) => {
     try {
       await Sharing.shareAsync(filePath);
@@ -214,7 +266,7 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>WebToBook</Text>
-        <Text style={styles.headerSubtitle}>Offline Novel Converter</Text>
+        <Text style={styles.headerSubtitle}>Offline Novel Converter + AI Summarizer</Text>
       </View>
       <ScrollView style={styles.content}>
         <View style={styles.section}>
@@ -263,13 +315,23 @@ export default function App() {
               data={chapters}
               keyExtractor={item => item.id.toString()}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.chapterItem, selectedChapters.has(item.id) && { backgroundColor: '#e3f2fd', borderColor: '#007AFF' }]}
-                  onPress={() => toggleChapter(item.id)}
-                >
-                  <Text style={styles.chapterTitle}>{item.title}</Text>
-                  <Text style={styles.chapterUrl}>{item.url.substring(0, 50)}...</Text>
-                </TouchableOpacity>
+                <View>
+                  <TouchableOpacity
+                    style={[styles.chapterItem, selectedChapters.has(item.id) && { backgroundColor: '#e3f2fd', borderColor: '#007AFF' }]}
+                    onPress={() => toggleChapter(item.id)}
+                  >
+                    <Text style={styles.chapterTitle}>{item.title}</Text>
+                    <Text style={styles.chapterUrl}>{item.url.substring(0, 50)}...</Text>
+                    {item.summary && <Text style={{ fontSize: 11, color: '#10B981', marginTop: 6 }}>✓ Summary available</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.summarizeBtn} onPress={() => generateSummary(item.id)}>
+                    {summarizing ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.summarizeBtnText}>🤖 AI Summary</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
               )}
             />
           </View>
@@ -317,11 +379,25 @@ export default function App() {
         {chapters.length === 0 && (
           <View style={[styles.section, { marginTop: 40 }]}>
             <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22 }}>
-              Paste any novel URL and convert to text files. Works 100% offline on your phone.
+              Paste any novel URL. Use AI to preview chapter summaries before downloading. Works 100% offline.
             </Text>
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={summaryModal} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>AI Summary</Text>
+            <ScrollView style={{ maxHeight: 300, marginBottom: 12 }}>
+              <Text style={styles.modalText}>{currentSummary}</Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSummaryModal(false)}>
+              <Text style={styles.buttonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
