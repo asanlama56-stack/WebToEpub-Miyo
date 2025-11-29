@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "WebToBook",
+    "slug": "webtobook-offline",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.webtobook.offline",
+      "versionCode": 1
+    },
+    "plugins": []
+  }
+}

@@ -1,0 +1,30 @@
+============================================
+WebToBook Offline APK - Build Instructions
+============================================
+
+This is a COMPLETELY SEPARATE Expo project for building the native Android APK.
+It has NO dependencies on the web app - fully isolated.
+
+BUILD COMMAND:
+cd expo-app
+eas build --platform android
+
+What happens:
+1. EAS builds a native Android APK
+2. Process takes 10-15 minutes
+3. You get a download link for the .apk file
+4. Install on any Android phone
+
+APP FEATURES:
+✓ 100% offline - no server needed
+✓ Parse novel websites automatically
+✓ Extract chapters and generate text files
+✓ Save to phone storage and share
+✓ Works on any Android phone
+
+NOTES:
+- This folder is SEPARATE from the web app
+- No conflicts with Express/Node dependencies
+- Clean Expo project with only React Native libraries
+- Safe to build without errors
+
