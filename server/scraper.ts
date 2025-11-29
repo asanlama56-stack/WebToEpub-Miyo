@@ -91,6 +91,137 @@ const chapterLinkSelectors = [
   "article a",
 ];
 
+export function detectDescription($: cheerio.Root): string | undefined {
+  const clean = (str: string) =>
+    str.replace(/\s+/g, " ").trim();
+
+  const isPlaceholder = (text: string) => {
+    const lower = text.toLowerCase();
+    return (
+      lower.includes("read") &&
+      lower.includes("novel online") &&
+      lower.includes("free")
+    );
+  };
+
+  const isTooShort = (t: string) => t.length < 60;
+
+  const strongSelectors = [
+    ".book-intro",
+    ".book-desc",
+    ".novel-summary",
+    ".synopsis",
+    ".story-intro",
+    ".summary",
+    "[data-synopsis]",
+    "[data-summary]",
+    "[data-book-info]"
+  ];
+
+  for (const sel of strongSelectors) {
+    const el = $(sel).first();
+    if (el.length > 0) {
+      const text = clean(el.text());
+      if (text && !isTooShort(text) && !isPlaceholder(text)) {
+        return text;
+      }
+    }
+  }
+
+  const infoSelectors = [".book-info p", ".book-content p", ".content p"];
+  for (const sel of infoSelectors) {
+    const paragraphs = $(sel).toArray();
+    for (const p of paragraphs) {
+      const text = clean($(p).text());
+      if (text && !isTooShort(text) && !isPlaceholder(text)) {
+        return text;
+      }
+    }
+  }
+
+  const metaSelectors = [
+    'meta[property="og:description"]',
+    'meta[name="description"]'
+  ];
+
+  for (const sel of metaSelectors) {
+    const content = clean($(sel).attr("content") || "");
+    if (content && !isPlaceholder(content) && !isTooShort(content)) {
+      return content;
+    }
+  }
+
+  return undefined;
+}
+
+export function detectCoverImageUrl($: cheerio.Root, pageUrl: string): string | undefined {
+  const isPlaceholder = (url?: string) => {
+    if (!url) return true;
+    const u = url.toLowerCase();
+    return (
+      u.includes("placeholder") ||
+      u.includes("default") ||
+      u.includes("noimage") ||
+      u.endsWith(".svg")
+    );
+  };
+
+  const makeAbs = (src: string) => {
+    try {
+      return new URL(src, pageUrl).href;
+    } catch {
+      return src;
+    }
+  };
+
+  const strongSelectors = [
+    ".book-img img",
+    ".novel-cover img",
+    ".book-cover img",
+    ".detail-cover img",
+    "img.cover",
+    "img.book-cover",
+    "img.novel-cover"
+  ];
+
+  for (const sel of strongSelectors) {
+    const img = $(sel).first();
+    if (img.length > 0) {
+      let src = img.attr("src") || img.attr("data-src");
+      if (src) {
+        src = makeAbs(src);
+        if (!isPlaceholder(src)) {
+          return src;
+        }
+      }
+    }
+  }
+
+  const title = $("h1, .book-title, .novel-title").first();
+  if (title.length) {
+    const img = title.closest("div").find("img").first();
+    if (img.length) {
+      let src = img.attr("src") || img.attr("data-src");
+      if (src) {
+        src = makeAbs(src);
+        if (!isPlaceholder(src)) {
+          return src;
+        }
+      }
+    }
+  }
+
+  const og = $('meta[property="og:image"]').attr("content");
+  if (og) {
+    const abs = makeAbs(og);
+    if (!isPlaceholder(abs)) {
+      return abs;
+    }
+  }
+
+  return undefined;
+}
+
 const contentSelectors = [
   ".chapter-content",
   ".entry-content",
@@ -233,7 +364,10 @@ function recommendFormat(contentType: ContentTypeType): OutputFormatType {
   }
 }
 
-async function detectDescription($: cheerio.CheerioAPI): Promise<string> {
+async function detectDescriptionAsync($: cheerio.CheerioAPI): Promise<string> {
+  const detected = detectDescription($);
+  if (detected) return detected;
+  
   const clean = (text: string) =>
     text.replace(/\s+/g, " ").trim();
 
@@ -246,34 +380,6 @@ async function detectDescription($: cheerio.CheerioAPI): Promise<string> {
     );
   };
 
-  // 1. HIGHEST PRIORITY — Real content sections
-  const realSelectors = [
-    ".book-intro",
-    ".book-desc",
-    ".novel-synopsis",
-    ".story-synopsis",
-    ".synopsis",
-    ".summary",
-    "[data-synopsis]",
-    "[data-summary]",
-    "[data-book-info]",
-    ".book-info p",
-    ".book-content-intro",
-    ".intro",
-    ".desc",
-  ];
-
-  for (const sel of realSelectors) {
-    const el = $(sel).first();
-    if (el?.text()) {
-      const text = clean(el.text());
-      if (text.length > 40 && !isPlaceholderText(text)) {
-        console.log("[detectDescription] Found via selector:", sel);
-        return text.substring(0, 500);
-      }
-    }
-  }
-
   // 2. JSON-LD description
   const jsonLd = $('script[type="application/ld+json"]').html();
   if (jsonLd) {
@@ -281,27 +387,9 @@ async function detectDescription($: cheerio.CheerioAPI): Promise<string> {
       const parsed = JSON.parse(jsonLd);
       const desc = parsed.description;
       if (desc && !isPlaceholderText(desc)) {
-        console.log("[detectDescription] Found via JSON-LD");
         return clean(desc).substring(0, 500);
       }
     } catch {}
-  }
-
-  // 3. Meta tags (LOW priority because they often contain placeholders)
-  const metaSelectors = [
-    'meta[name="description"]',
-    'meta[property="og:description"]',
-    'meta[name="twitter:description"]'
-  ];
-
-  for (const sel of metaSelectors) {
-    const tag = $(sel).attr("content");
-    if (tag) {
-      const text = clean(tag);
-      if (text.length > 50 && !isPlaceholderText(text)) {
-        console.log("[detectDescription] Found via meta:", sel);
-        return text.substring(0, 500);
-      }
     }
   }
 

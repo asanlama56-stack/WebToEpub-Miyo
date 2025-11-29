@@ -9,6 +9,8 @@ import { analyzeUrlSchema, startDownloadSchema, type BookMetadata, type Download
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { getImageCache } from "./utils/imagePipeline";
+import { createImageJob, getImageJob } from "./jobs/imageJobs";
+import { validateImageJob } from "./imageValidator";
 
 const activeDownloads = new Map<string, { abort: boolean }>();
 const generatedFiles = new Map<string, { buffer: Buffer; filename: string; mimeType: string }>();
@@ -33,11 +35,17 @@ export async function registerRoutes(
         await storage.updateAnalysisProgress(job.id, 20);
         const { metadata, chapters } = await analyzeUrl(url);
 
+        // Create image job for background validation
+        const imageJob = createImageJob(metadata?.coverUrl);
+        validateImageJob(imageJob.id).catch(err =>
+          console.error("[IMG-JOB]", imageJob.id, "validation error:", err)
+        );
+
         await storage.updateAnalysisProgress(job.id, 80);
         await storage.updateJobChapters(job.id, chapters);
         
         const updatedJob = await storage.updateJob(job.id, {
-          metadata,
+          metadata: metadata ? { ...metadata, imageJobId: imageJob.id } : undefined,
           status: "pending",
           selectedChapterIds: chapters.map((ch) => ch.id),
           progress: 100,
