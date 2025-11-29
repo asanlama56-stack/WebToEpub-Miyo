@@ -1,37 +1,99 @@
-import { type User, type InsertUser } from "@shared/schema";
+import type { DownloadJob, Chapter, DownloadStatusType } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  createJob(url: string): Promise<DownloadJob>;
+  getJob(id: string): Promise<DownloadJob | undefined>;
+  getAllJobs(): Promise<DownloadJob[]>;
+  updateJob(id: string, updates: Partial<DownloadJob>): Promise<DownloadJob | undefined>;
+  updateJobChapters(id: string, chapters: Chapter[]): Promise<DownloadJob | undefined>;
+  updateChapterStatus(jobId: string, chapterId: string, status: DownloadStatusType, content?: string, error?: string): Promise<void>;
+  deleteJob(id: string): Promise<boolean>;
+  clearCompletedJobs(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private jobs: Map<string, DownloadJob>;
 
   constructor() {
-    this.users = new Map();
+    this.jobs = new Map();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async createJob(url: string): Promise<DownloadJob> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const job: DownloadJob = {
+      id,
+      url,
+      chapters: [],
+      selectedChapterIds: [],
+      outputFormat: "epub",
+      status: "pending",
+      progress: 0,
+      createdAt: Date.now(),
+    };
+    this.jobs.set(id, job);
+    return job;
+  }
+
+  async getJob(id: string): Promise<DownloadJob | undefined> {
+    return this.jobs.get(id);
+  }
+
+  async getAllJobs(): Promise<DownloadJob[]> {
+    return Array.from(this.jobs.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  async updateJob(id: string, updates: Partial<DownloadJob>): Promise<DownloadJob | undefined> {
+    const job = this.jobs.get(id);
+    if (!job) return undefined;
+    
+    const updatedJob = { ...job, ...updates };
+    this.jobs.set(id, updatedJob);
+    return updatedJob;
+  }
+
+  async updateJobChapters(id: string, chapters: Chapter[]): Promise<DownloadJob | undefined> {
+    const job = this.jobs.get(id);
+    if (!job) return undefined;
+    
+    job.chapters = chapters;
+    this.jobs.set(id, job);
+    return job;
+  }
+
+  async updateChapterStatus(
+    jobId: string,
+    chapterId: string,
+    status: DownloadStatusType,
+    content?: string,
+    error?: string
+  ): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+    
+    const chapterIndex = job.chapters.findIndex((ch) => ch.id === chapterId);
+    if (chapterIndex === -1) return;
+    
+    job.chapters[chapterIndex] = {
+      ...job.chapters[chapterIndex],
+      status,
+      content,
+      error,
+    };
+    
+    this.jobs.set(jobId, job);
+  }
+
+  async deleteJob(id: string): Promise<boolean> {
+    return this.jobs.delete(id);
+  }
+
+  async clearCompletedJobs(): Promise<void> {
+    for (const [id, job] of this.jobs.entries()) {
+      if (job.status === "complete" || job.status === "error") {
+        this.jobs.delete(id);
+      }
+    }
   }
 }
 

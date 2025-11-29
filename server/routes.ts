@@ -1,16 +1,262 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { analyzeUrl, downloadChaptersParallel } from "./scraper";
+import { generateOutput } from "./generator";
+import { analyzeUrlSchema, startDownloadSchema, type BookMetadata, type DownloadStatusType } from "@shared/schema";
+import { ZodError } from "zod";
+import { fromZodError } from "zod-validation-error";
+
+const activeDownloads = new Map<string, { abort: boolean }>();
+const generatedFiles = new Map<string, { buffer: Buffer; filename: string; mimeType: string }>();
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  app.post("/api/analyze", async (req: Request, res: Response) => {
+    try {
+      const parsed = analyzeUrlSchema.parse(req.body);
+      const { url } = parsed;
+
+      const job = await storage.createJob(url);
+      await storage.updateJob(job.id, { status: "analyzing" });
+
+      try {
+        const { metadata, chapters } = await analyzeUrl(url);
+
+        await storage.updateJobChapters(job.id, chapters);
+        const updatedJob = await storage.updateJob(job.id, {
+          metadata,
+          status: "pending",
+          selectedChapterIds: chapters.map((ch) => ch.id),
+        });
+
+        res.json({
+          success: true,
+          job: updatedJob,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Analysis failed";
+        await storage.updateJob(job.id, {
+          status: "error",
+          error: errorMessage,
+        });
+
+        res.json({
+          success: false,
+          message: errorMessage,
+          job: await storage.getJob(job.id),
+        });
+      }
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const readable = fromZodError(error);
+        res.status(400).json({ success: false, message: readable.message });
+      } else {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        res.status(500).json({ success: false, message });
+      }
+    }
+  });
+
+  app.post("/api/download", async (req: Request, res: Response) => {
+    try {
+      const parsed = startDownloadSchema.parse(req.body);
+      const { jobId, selectedChapterIds, outputFormat, settings } = parsed;
+
+      const job = await storage.getJob(jobId);
+      if (!job) {
+        return res.status(404).json({ success: false, message: "Job not found" });
+      }
+
+      if (req.body.metadata) {
+        const metadataUpdates = req.body.metadata as Partial<BookMetadata>;
+        await storage.updateJob(jobId, {
+          metadata: { ...job.metadata!, ...metadataUpdates },
+        });
+      }
+
+      await storage.updateJob(jobId, {
+        selectedChapterIds,
+        outputFormat,
+        status: "downloading",
+        progress: 0,
+      });
+
+      const downloadControl = { abort: false };
+      activeDownloads.set(jobId, downloadControl);
+
+      const chaptersToDownload = job.chapters.filter((ch) =>
+        selectedChapterIds.includes(ch.id)
+      );
+
+      const concurrency = settings?.concurrentDownloads || 3;
+      const delay = settings?.delayBetweenRequests || 500;
+      const startTime = Date.now();
+      let completedCount = 0;
+
+      downloadChaptersParallel(
+        chaptersToDownload,
+        concurrency,
+        delay,
+        async (chapterId, status, content, wordCount, error) => {
+          if (downloadControl.abort) return;
+
+          const chapterStatus: DownloadStatusType = status === "downloading"
+            ? "downloading"
+            : status === "complete"
+            ? "complete"
+            : "error";
+
+          await storage.updateChapterStatus(jobId, chapterId, chapterStatus, content, error);
+
+          if (status === "complete" || status === "error") {
+            completedCount++;
+            const progress = (completedCount / chaptersToDownload.length) * 100;
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = completedCount / elapsed;
+            const remaining = chaptersToDownload.length - completedCount;
+            const eta = speed > 0 ? remaining / speed : 0;
+
+            await storage.updateJob(jobId, {
+              progress,
+              downloadSpeed: Math.round(speed * 1000),
+              eta: Math.round(eta),
+            });
+          }
+
+          if (completedCount === chaptersToDownload.length) {
+            await processAndGenerate(jobId, outputFormat);
+          }
+        }
+      );
+
+      res.json({ success: true, jobId });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const readable = fromZodError(error);
+        res.status(400).json({ success: false, message: readable.message });
+      } else {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        res.status(500).json({ success: false, message });
+      }
+    }
+  });
+
+  async function processAndGenerate(jobId: string, outputFormat: "epub" | "pdf" | "html") {
+    try {
+      await storage.updateJob(jobId, { status: "processing" });
+
+      const job = await storage.getJob(jobId);
+      if (!job || !job.metadata) {
+        throw new Error("Job or metadata not found");
+      }
+
+      const chaptersWithContent = job.chapters.filter(
+        (ch) => job.selectedChapterIds.includes(ch.id) && ch.content
+      );
+
+      if (chaptersWithContent.length === 0) {
+        throw new Error("No chapters with content available");
+      }
+
+      const result = await generateOutput(job.metadata, chaptersWithContent, outputFormat);
+
+      generatedFiles.set(jobId, result);
+
+      await storage.updateJob(jobId, {
+        status: "complete",
+        progress: 100,
+        completedAt: Date.now(),
+        outputPath: `/api/download-file/${jobId}`,
+      });
+
+      activeDownloads.delete(jobId);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Generation failed";
+      await storage.updateJob(jobId, {
+        status: "error",
+        error: errorMessage,
+      });
+      activeDownloads.delete(jobId);
+    }
+  }
+
+  app.get("/api/jobs", async (_req: Request, res: Response) => {
+    try {
+      const jobs = await storage.getAllJobs();
+      res.json(jobs);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch jobs" });
+    }
+  });
+
+  app.get("/api/jobs/:id", async (req: Request, res: Response) => {
+    try {
+      const job = await storage.getJob(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      res.json(job);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch job" });
+    }
+  });
+
+  app.post("/api/jobs/:id/cancel", async (req: Request, res: Response) => {
+    try {
+      const jobId = req.params.id;
+      const control = activeDownloads.get(jobId);
+      if (control) {
+        control.abort = true;
+        activeDownloads.delete(jobId);
+      }
+
+      await storage.updateJob(jobId, { status: "error", error: "Cancelled by user" });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to cancel job" });
+    }
+  });
+
+  app.post("/api/jobs/clear-completed", async (_req: Request, res: Response) => {
+    try {
+      const jobs = await storage.getAllJobs();
+      for (const job of jobs) {
+        if (job.status === "complete" || job.status === "error") {
+          generatedFiles.delete(job.id);
+        }
+      }
+      await storage.clearCompletedJobs();
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, error: "Failed to clear jobs" });
+    }
+  });
+
+  app.get("/api/download-file/:id", async (req: Request, res: Response) => {
+    try {
+      const jobId = req.params.id;
+      const file = generatedFiles.get(jobId);
+
+      if (!file) {
+        return res.status(404).json({ error: "File not found or expired" });
+      }
+
+      res.setHeader("Content-Type", file.mimeType);
+      res.setHeader("Content-Disposition", `attachment; filename="${file.filename}"`);
+      res.setHeader("Content-Length", file.buffer.length);
+      res.send(file.buffer);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to download file" });
+    }
+  });
+
+  app.get("/api/health", (_req: Request, res: Response) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   return httpServer;
 }
