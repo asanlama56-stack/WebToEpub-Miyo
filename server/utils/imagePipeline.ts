@@ -1,13 +1,22 @@
-import { dlog } from "./logger";
-import { downloadImageRobust } from "./downloadImage";
-import { safeDataUrlForBuffer } from "./dataUrl";
 import NodeCache from "node-cache";
+import { createImageJob, updateImageJob, getImageJob } from "../jobs/imageJobs";
+import { downloadImageBuffer } from "./downloadImage";
+import { makeSafeDataUrl } from "./dataUrl";
+import { dlog } from "./logger";
 
-const imageCache = new NodeCache({ stdTTL: 60 * 60 });
+const imageCache = new NodeCache({ stdTTL: 60*60, checkperiod: 120 });
 
-export async function produceCoverForMetadata(detectedUrl: string) {
-  try {
-    dlog("pipeline:start", "Starting cover pipeline", { detectedUrl });
+export async function startImageJob(detectedUrl?: string) {
+  const job = createImageJob(detectedUrl);
+  if (!detectedUrl) {
+    updateImageJob(job.id, { state: "failed", error: "No detected URL" });
+    return job;
+  }
+
+  (async () => {
+    try {
+      updateImageJob(job.id, { state: "loading", logs: [...(job.logs||[]), "loading"] });
+      dlog("job:start", "job started", { jobId: job.id, detectedUrl });
 
     const res = await downloadImageRobust(detectedUrl);
     dlog("pipeline:downloaded", "Downloaded image", {

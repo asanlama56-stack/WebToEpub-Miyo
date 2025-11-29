@@ -322,6 +322,20 @@ export async function registerRoutes(
     res.json(imageJob);
   });
 
+  // Proxy cached image endpoint
+  app.get("/api/image/:id", (req: Request, res: Response) => {
+    const imageCache = getImageCache();
+    const proxyId = req.params.id;
+    const entry = imageCache.get<{ buffer: Buffer; mime: string }>(proxyId);
+    if (!entry) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+    res.setHeader("Content-Type", entry.mime);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(entry.buffer);
+  });
+
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
