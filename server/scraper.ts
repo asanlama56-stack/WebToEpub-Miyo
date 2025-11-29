@@ -679,11 +679,14 @@ export async function analyzeUrl(url: string): Promise<{
   const contentType = detectContentType(html, url);
   const recommendedFormat = recommendFormat(contentType);
 
+  // Create data URL from base64 for display
+  const displayCoverUrl = coverImageDataBase64 ? `data:image/jpeg;base64,${coverImageDataBase64}` : undefined;
+
   const metadata: BookMetadata = {
     title: title.substring(0, 500),
     author: author.substring(0, 200),
     description: description.substring(0, 2000),
-    coverUrl,
+    coverUrl: displayCoverUrl || coverUrl,
     coverImageData: coverImageDataBase64,
     sourceUrl: url,
     detectedContentType: contentType,
