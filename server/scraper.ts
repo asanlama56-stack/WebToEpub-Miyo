@@ -369,6 +369,39 @@ export async function analyzeUrl(url: string): Promise<{
     currentPageUrl = nextPageUrl || "";
   }
 
+  // If we got very few chapters, try URL pattern generation (for sites like WuxiaSpot)
+  if (chapters.length < 20) {
+    const urlPattern = url.match(/(.+?\/novel\/[^_]+)(_\d+)?\.html?/);
+    if (urlPattern) {
+      const baseUrl = urlPattern[1];
+      const maxChaptersToTry = 500;
+      
+      for (let i = 1; i <= maxChaptersToTry; i++) {
+        const chapterUrl = `${baseUrl}_${i}.html`;
+        if (!seenUrls.has(chapterUrl)) {
+          try {
+            const response = await fetch(chapterUrl, {
+              headers: { "User-Agent": getRandomUserAgent() },
+              signal: AbortSignal.timeout(5000),
+            });
+            if (response.ok) {
+              chapters.push({
+                id: randomUUID(),
+                title: `Chapter ${i}`,
+                url: chapterUrl,
+                index: chapters.length,
+                status: "pending",
+              });
+              seenUrls.add(chapterUrl);
+            }
+          } catch {
+            // Skip this chapter if fetch fails
+          }
+        }
+      }
+    }
+  }
+
   chapters.sort((a, b) => {
     const numA = extractNumber(a.title);
     const numB = extractNumber(b.title);
