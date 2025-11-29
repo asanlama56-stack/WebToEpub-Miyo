@@ -390,7 +390,6 @@ async function detectDescriptionAsync($: cheerio.CheerioAPI): Promise<string> {
         return clean(desc).substring(0, 500);
       }
     } catch {}
-    }
   }
 
   console.log("[detectDescription] No valid description found.");

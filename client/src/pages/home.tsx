@@ -29,6 +29,7 @@ export default function Home() {
   const [settings, setSettings] = useState<DownloadSettings>(defaultSettings);
   const [editableMetadata, setEditableMetadata] = useState<Partial<BookMetadata>>({});
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageJobId, setImageJobId] = useState<string | null>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -37,6 +38,41 @@ export default function Home() {
     queryKey: ["/api/jobs"],
     refetchInterval: 2000,
   });
+
+  // Poll for image status when we have an imageJobId
+  useEffect(() => {
+    if (!imageJobId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/jobs/${imageJobId}/image-status`);
+        if (!response.ok) {
+          console.warn("[IMG-POLL] Status check failed:", response.status);
+          return;
+        }
+        const data = await response.json();
+        console.log("[IMG-POLL] Status:", data.state, "FinalUrl:", !!data.finalUrl);
+
+        if (data.state === "success" && data.finalUrl) {
+          // Update metadata with the validated image
+          setEditableMetadata(prev => ({
+            ...prev,
+            coverUrl: data.finalUrl
+          }));
+          setImageLoaded(true);
+          clearInterval(interval);
+        } else if (data.state === "failed") {
+          console.error("[IMG-POLL] Image validation failed:", data.error);
+          setImageLoaded(true); // Allow download even without image
+          clearInterval(interval);
+        }
+      } catch (error) {
+        console.error("[IMG-POLL] Error checking image status:", error);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [imageJobId]);
 
   const analyzeMutation = useMutation({
     mutationFn: async (url: string) => {
@@ -47,13 +83,20 @@ export default function Home() {
       if (data.success && data.job) {
         setCurrentJob(data.job);
         setSelectedChapterIds(data.job.chapters.map((ch) => ch.id));
+        setImageLoaded(false);
         if (data.job.metadata) {
           setOutputFormat(data.job.metadata.recommendedFormat);
           setEditableMetadata({
             title: data.job.metadata.title,
             author: data.job.metadata.author,
             description: data.job.metadata.description,
+            coverUrl: data.job.metadata.coverUrl,
           });
+          // Start polling for image validation if imageJobId exists
+          const imgJobId = (data.job.metadata as any).imageJobId;
+          if (imgJobId) {
+            setImageJobId(imgJobId);
+          }
         }
         toast({
           title: "Analysis Complete",
@@ -81,8 +124,8 @@ export default function Home() {
   const { data: analysisJob } = useQuery<DownloadJob | null>({
     queryKey: ["/api/jobs"],
     refetchInterval: 500,
-    select: (jobs) => {
-      return (jobs || []).find((j) => j.status === "analyzing") || null;
+    select: (jobs: DownloadJob[]) => {
+      return (jobs || []).find((j: DownloadJob) => j.status === "analyzing") || null;
     },
     enabled: analyzeMutation.isPending,
   });

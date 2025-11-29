@@ -297,6 +297,31 @@ export async function registerRoutes(
     res.send(entry.buffer);
   });
 
+  app.get("/api/jobs/:id/image-status", (req: Request, res: Response) => {
+    const imageJob = getImageJob(req.params.id);
+    if (!imageJob) {
+      return res.status(404).json({ error: "Image job not found" });
+    }
+
+    res.json({
+      state: imageJob.state,
+      finalUrl: imageJob.finalUrl,
+      error: imageJob.error,
+      logs: imageJob.logs,
+      bytesDownloaded: imageJob.bytesDownloaded,
+      dataUrlLength: imageJob.dataUrlLength,
+      mimeType: imageJob.mimeType
+    });
+  });
+
+  app.get("/api/debug/image-pipeline/:id", (req: Request, res: Response) => {
+    const imageJob = getImageJob(req.params.id);
+    if (!imageJob) {
+      return res.status(404).json({ error: "Image job not found" });
+    }
+    res.json(imageJob);
+  });
+
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
