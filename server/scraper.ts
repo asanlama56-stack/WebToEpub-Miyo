@@ -270,87 +270,93 @@ export async function analyzeUrl(url: string): Promise<{
   const seenUrls = new Set<string>();
   let currentPageUrl = url;
   let pageCount = 0;
-  const maxPages = 50;
+  const maxPages = 300;
+  let noNewChaptersCount = 0;
 
-  while (currentPageUrl && pageCount < maxPages) {
+  while (currentPageUrl && pageCount < maxPages && noNewChaptersCount < 3) {
     pageCount++;
     html = await fetchWithRetry(currentPageUrl);
     $ = cheerio.load(html);
 
-    // Extract chapters from current page using all selectors
+    const chaptersBeforeThisPage = chapters.length;
+
+    // Extract chapters from current page - try all selectors and fallback to all links
+    const allLinks: Array<{ href: string; text: string }> = [];
+    
+    // Try specific chapter selectors first
+    let foundWithSelectors = false;
     for (const selector of chapterLinkSelectors) {
       $(selector).each((index, element) => {
         const $el = $(element);
         const href = $el.attr("href");
         const text = $el.text().trim();
 
-        if (!href || !text) return;
-
-        let fullUrl: string;
-        try {
-          fullUrl = new URL(href, currentPageUrl).href;
-        } catch {
-          return;
-        }
-
-        if (seenUrls.has(fullUrl)) return;
-
-        if (isChapterLink(text, href)) {
-          seenUrls.add(fullUrl);
-          chapters.push({
-            id: randomUUID(),
-            title: text.substring(0, 200),
-            url: fullUrl,
-            index: chapters.length,
-            status: "pending",
-          });
+        if (href && text) {
+          allLinks.push({ href, text });
+          foundWithSelectors = true;
         }
       });
     }
 
-    // Fallback: if no chapters found with specific selectors, try all links
-    if (chapters.length === 0) {
+    // If no specific selectors matched, try all links
+    if (!foundWithSelectors) {
       $("a").each((index, element) => {
         const $el = $(element);
         const href = $el.attr("href");
         const text = $el.text().trim();
 
-        if (!href || !text || text.length > 200) return;
-
-        let fullUrl: string;
-        try {
-          fullUrl = new URL(href, currentPageUrl).href;
-        } catch {
-          return;
-        }
-
-        if (seenUrls.has(fullUrl)) return;
-
-        if (isChapterLink(text, href)) {
-          seenUrls.add(fullUrl);
-          chapters.push({
-            id: randomUUID(),
-            title: text,
-            url: fullUrl,
-            index: chapters.length,
-            status: "pending",
-          });
+        if (href && text && text.length <= 200) {
+          allLinks.push({ href, text });
         }
       });
     }
 
-    // Look for next page link
+    // Process all collected links
+    for (const { href, text } of allLinks) {
+      let fullUrl: string;
+      try {
+        fullUrl = new URL(href, currentPageUrl).href;
+      } catch {
+        continue;
+      }
+
+      if (seenUrls.has(fullUrl)) continue;
+
+      if (isChapterLink(text, href)) {
+        seenUrls.add(fullUrl);
+        chapters.push({
+          id: randomUUID(),
+          title: text.substring(0, 200),
+          url: fullUrl,
+          index: chapters.length,
+          status: "pending",
+        });
+      }
+    }
+
+    // Check if we found new chapters on this page
+    if (chapters.length === chaptersBeforeThisPage) {
+      noNewChaptersCount++;
+    } else {
+      noNewChaptersCount = 0;
+    }
+
+    // Look for next page link - try multiple strategies
+    let nextPageUrl: string | null = null;
+
+    // Strategy 1: Look for explicitly labeled next links
     const nextPageSelectors = [
       'a[rel="next"]',
       'a.next',
-      'a:contains("Next")',
-      '.pagination a.next',
+      '.pagination a:contains("Next")',
+      '.pagination a:contains("→")',
+      '.pagination a:contains("»")',
       'a[aria-label*="Next"]',
-      'a:contains("→")',
-      'a:contains("»")',
+      'a[title*="Next"]',
+      '.pager a:contains("Next")',
+      'a.next-page',
     ];
 
-    let nextPageUrl: string | null = null;
     for (const selector of nextPageSelectors) {
       const nextLink = $(selector).first();
       if (nextLink.length > 0) {
@@ -366,15 +372,60 @@ export async function analyzeUrl(url: string): Promise<{
       }
     }
 
+    // Strategy 2: Look for numbered pagination and find the next page number
+    if (!nextPageUrl) {
+      const paginationLinks: Array<{ num: number; url: string }> = [];
+      $(".pagination a, .pager a, .page-numbers a").each((index, element) => {
+        const $el = $(element);
+        const text = $el.text().trim();
+        const href = $el.attr("href");
+        const num = parseInt(text, 10);
+
+        if (href && !isNaN(num) && num > 0) {
+          try {
+            const fullUrl = new URL(href, currentPageUrl).href;
+            paginationLinks.push({ num, url: fullUrl });
+          } catch {
+            // Skip invalid URLs
+          }
+        }
+      });
+
+      // Sort by number and find the next one after current page
+      paginationLinks.sort((a, b) => a.num - b.num);
+      if (paginationLinks.length > 0) {
+        const nextPageNum = pageCount + 1;
+        const nextPageLink = paginationLinks.find((p) => p.num === nextPageNum);
+        if (nextPageLink) {
+          nextPageUrl = nextPageLink.url;
+        } else if (pageCount === 1 && paginationLinks.length > 1) {
+          // On first page, go to page 2
+          nextPageUrl = paginationLinks[1].url;
+        }
+      }
+    }
+
+    // Strategy 3: Try URL-based pagination (page=X or similar)
+    if (!nextPageUrl) {
+      const nextPageNum = pageCount + 1;
+      const urlWithPageParam = currentPageUrl.includes("?")
+        ? currentPageUrl.replace(/([?&])page=\d+/, `$1page=${nextPageNum}`)
+        : `${currentPageUrl}${currentPageUrl.includes("?") ? "&" : "?"}page=${nextPageNum}`;
+
+      if (urlWithPageParam !== currentPageUrl) {
+        nextPageUrl = urlWithPageParam;
+      }
+    }
+
     currentPageUrl = nextPageUrl || "";
   }
 
   // If we got very few chapters, try URL pattern generation (for sites like WuxiaSpot)
-  if (chapters.length < 20) {
+  if (chapters.length < 50) {
     const urlPattern = url.match(/(.+?\/novel\/[^_]+)(_\d+)?\.html?/);
     if (urlPattern) {
       const baseUrl = urlPattern[1];
-      const maxChaptersToTry = 300;
+      const maxChaptersToTry = 2500;
       let consecutiveMisses = 0;
       
       for (let i = 1; i <= maxChaptersToTry; i++) {
@@ -383,7 +434,7 @@ export async function analyzeUrl(url: string): Promise<{
           try {
             const response = await fetch(chapterUrl, {
               headers: { "User-Agent": getRandomUserAgent() },
-              signal: AbortSignal.timeout(3000),
+              signal: AbortSignal.timeout(2000),
             });
             if (response.ok) {
               chapters.push({
@@ -397,12 +448,12 @@ export async function analyzeUrl(url: string): Promise<{
               consecutiveMisses = 0;
             } else {
               consecutiveMisses++;
-              // Stop if 10 consecutive chapters don't exist
-              if (consecutiveMisses > 10) break;
+              // Stop if 20 consecutive chapters don't exist
+              if (consecutiveMisses > 20) break;
             }
           } catch {
             consecutiveMisses++;
-            if (consecutiveMisses > 10) break;
+            if (consecutiveMisses > 20) break;
           }
         }
       }
