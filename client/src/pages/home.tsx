@@ -136,6 +136,15 @@ export default function Home() {
   const handleStartDownload = useCallback(() => {
     if (!currentJob) return;
     
+    if (selectedChapterIds.length > 2000) {
+      toast({
+        title: "Too Many Chapters",
+        description: "Downloads are limited to 2000 chapters maximum to ensure stability on mobile devices. Please select fewer chapters.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     downloadMutation.mutate({
       jobId: currentJob.id,
       selectedChapterIds,
@@ -149,7 +158,7 @@ export default function Home() {
         cleanupHtml: settings.cleanupHtml,
       },
     });
-  }, [currentJob, selectedChapterIds, outputFormat, editableMetadata, settings, downloadMutation]);
+  }, [currentJob, selectedChapterIds, outputFormat, editableMetadata, settings, downloadMutation, toast]);
 
   const handleDownloadFile = useCallback((job: DownloadJob) => {
     if (job.outputPath) {
@@ -256,6 +265,26 @@ export default function Home() {
                 onSelectionChange={setSelectedChapterIds}
                 isLoading={downloadMutation.isPending}
               />
+
+              {currentJob.chapters.length > 2000 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Chapter Limit Warning</AlertTitle>
+                  <AlertDescription>
+                    This novel has {currentJob.chapters.length} chapters. Downloads are limited to 2000 chapters maximum to ensure stability and performance on mobile devices. Please select 2000 or fewer chapters to proceed.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {selectedChapterIds.length > 2000 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Selection Exceeds Limit</AlertTitle>
+                  <AlertDescription>
+                    You have selected {selectedChapterIds.length} chapters, but the maximum allowed is 2000. Please deselect some chapters to continue.
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <div className="flex items-center justify-between gap-4 p-4 rounded-lg border border-card-border bg-card">
                 <div>

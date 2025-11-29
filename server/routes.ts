@@ -80,6 +80,13 @@ export async function registerRoutes(
         return res.status(404).json({ success: false, message: "Job not found" });
       }
 
+      if (selectedChapterIds.length > 2000) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Download limited to 2000 chapters maximum. This limit ensures stability on mobile devices. Please select fewer chapters." 
+        });
+      }
+
       if (req.body.metadata) {
         const metadataUpdates = req.body.metadata as Partial<BookMetadata>;
         await storage.updateJob(jobId, {
