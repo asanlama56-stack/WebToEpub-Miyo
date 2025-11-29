@@ -28,6 +28,7 @@ export default function Home() {
   const [outputFormat, setOutputFormat] = useState<OutputFormatType>("epub");
   const [settings, setSettings] = useState<DownloadSettings>(defaultSettings);
   const [editableMetadata, setEditableMetadata] = useState<Partial<BookMetadata>>({});
+  const [imageLoaded, setImageLoaded] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -297,9 +298,10 @@ export default function Home() {
                 </div>
                 <Button
                   onClick={handleStartDownload}
-                  disabled={selectedChapterIds.length === 0 || downloadMutation.isPending}
+                  disabled={selectedChapterIds.length === 0 || downloadMutation.isPending || (!imageLoaded && !!currentJob?.metadata?.coverUrl)}
                   className="gap-2"
                   data-testid="button-start-download"
+                  title={!imageLoaded && currentJob?.metadata?.coverUrl ? "Waiting for cover image to load..." : ""}
                 >
                   {downloadMutation.isPending ? (
                     <>
@@ -323,6 +325,7 @@ export default function Home() {
                     ...currentJob.metadata,
                     ...editableMetadata,
                   }}
+                  onImageLoaded={setImageLoaded}
                   onMetadataChange={handleMetadataChange}
                   editable
                 />

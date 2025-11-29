@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Book, User, Globe, FileText, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ interface MetadataDisplayProps {
   metadata: BookMetadata;
   onMetadataChange?: (metadata: Partial<BookMetadata>) => void;
   editable?: boolean;
+  onImageLoaded?: (loaded: boolean) => void;
 }
 
 const contentTypeLabels = {
@@ -23,7 +25,9 @@ export function MetadataDisplay({
   metadata,
   onMetadataChange,
   editable = false,
+  onImageLoaded,
 }: MetadataDisplayProps) {
+  const [imageLoadState, setImageLoadState] = useState<'loading' | 'success' | 'failed'>('loading');
   return (
     <Card className="border-card-border">
       <CardHeader className="pb-3">
@@ -43,17 +47,29 @@ export function MetadataDisplay({
                 data-testid="img-book-cover"
                 onError={(e) => {
                   console.error("[UI] Cover image failed to load:", metadata.coverUrl, e);
+                  setImageLoadState('failed');
+                  onImageLoaded?.(false);
                   if (metadata.proxyUrl && metadata.proxyUrl !== metadata.coverUrl) {
                     console.log("[UI] Attempting fallback to proxy URL:", metadata.proxyUrl);
                     (e.target as HTMLImageElement).src = metadata.proxyUrl;
                   }
                 }}
-                onLoad={() => console.log("[UI] Cover loaded OK:", metadata.coverUrl)}
+                onLoad={() => {
+                  console.log("[UI] Cover loaded OK:", metadata.coverUrl);
+                  setImageLoadState('success');
+                  onImageLoaded?.(true);
+                }}
               />
             </div>
           ) : (
             <div className="w-24 h-36 rounded-md border border-dashed border-card-border flex items-center justify-center bg-muted/30">
-              <Book className="h-8 w-8 text-muted-foreground/50" />
+              {imageLoadState === 'loading' ? (
+                <div className="text-xs text-muted-foreground text-center px-2">Loading cover...</div>
+              ) : imageLoadState === 'success' ? (
+                <div className="text-xs text-green-600 text-center font-semibold">✓ Loaded</div>
+              ) : (
+                <Book className="h-8 w-8 text-muted-foreground/50" />
+              )}
             </div>
           )}
 
