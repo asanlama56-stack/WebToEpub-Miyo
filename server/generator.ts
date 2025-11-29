@@ -213,9 +213,16 @@ export async function generateEpub(
     });
 
     const archive = archiver("zip", {
-      zlib: { level: 9 },
+      zlib: { level: 6 },
     });
 
+    archive.on("warning", (err) => {
+      if (err.code === "ENOENT") {
+        console.warn("[EPUB] Archive warning:", err.message);
+      } else {
+        reject(err);
+      }
+    });
     archive.on("error", reject);
     archive.on("end", () => {
       resolve(Buffer.concat(chunks));
@@ -265,7 +272,7 @@ export async function generatePdf(
           Subject: metadata.description || "",
           Creator: "WebToBook",
         },
-        bufferPages: true,
+        bufferPages: false,
       });
 
       doc.on("data", (chunk) => chunks.push(chunk));
@@ -293,31 +300,28 @@ export async function generatePdf(
       });
       doc.moveDown();
 
-      chapters
-        .filter((ch) => ch.content)
-        .forEach((chapter, index) => {
-          doc.fontSize(11).font("Helvetica").text(`${index + 1}. ${chapter.title}`);
-          doc.moveDown(0.3);
+      const chaptersWithContent = chapters.filter((ch) => ch.content);
+      chaptersWithContent.forEach((chapter, index) => {
+        doc.fontSize(11).font("Helvetica").text(`${index + 1}. ${chapter.title}`);
+        doc.moveDown(0.3);
+      });
+
+      chaptersWithContent.forEach((chapter) => {
+        doc.addPage();
+
+        doc.fontSize(16).font("Helvetica-Bold").text(chapter.title);
+        doc.moveDown();
+
+        const textContent = htmlToText(chapter.content || "", {
+          wordwrap: false,
+          preserveNewlines: true,
         });
 
-      chapters
-        .filter((ch) => ch.content)
-        .forEach((chapter) => {
-          doc.addPage();
-
-          doc.fontSize(16).font("Helvetica-Bold").text(chapter.title);
-          doc.moveDown();
-
-          const textContent = htmlToText(chapter.content || "", {
-            wordwrap: false,
-            preserveNewlines: true,
-          });
-
-          doc.fontSize(11).font("Helvetica").text(textContent, {
-            align: "justify",
-            lineGap: 4,
-          });
+        doc.fontSize(11).font("Helvetica").text(textContent, {
+          align: "justify",
+          lineGap: 4,
         });
+      });
 
       doc.end();
     } catch (error) {

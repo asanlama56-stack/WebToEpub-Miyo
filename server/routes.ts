@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { analyzeUrl, downloadChaptersParallel } from "./scraper";
@@ -14,6 +15,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.use(express.json({ limit: "500mb" }));
+  app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
   app.post("/api/analyze", async (req: Request, res: Response) => {
     try {
@@ -102,9 +106,6 @@ export async function registerRoutes(
       const startTime = Date.now();
       let completedCount = 0;
 
-      const batchSize = 500;
-      let lastBatchGenerated = 0;
-
       downloadChaptersParallel(
         chaptersToDownload,
         concurrency,
@@ -133,14 +134,10 @@ export async function registerRoutes(
               downloadSpeed: Math.round(speed * 1000),
               eta: Math.round(eta),
             });
+          }
 
-            // Generate batch if we've completed batchSize chapters
-            if (completedCount - lastBatchGenerated >= batchSize || completedCount === chaptersToDownload.length) {
-              if (completedCount === chaptersToDownload.length) {
-                await processAndGenerate(jobId, outputFormat);
-              }
-              lastBatchGenerated = completedCount;
-            }
+          if (completedCount === chaptersToDownload.length) {
+            await processAndGenerate(jobId, outputFormat);
           }
         }
       );

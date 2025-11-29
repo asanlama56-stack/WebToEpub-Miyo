@@ -110,12 +110,12 @@ export function DownloadProgress({
     <Card className="border-card-border overflow-hidden" data-testid={`download-card-${job.id}`}>
       <CardContent className="p-4">
         <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0 max-w-full">
-              <h3 className="font-semibold text-sm break-words line-clamp-2" data-testid={`text-job-title-${job.id}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm break-words line-clamp-2 w-full" data-testid={`text-job-title-${job.id}`}>
                 {job.metadata?.title || "Untitled Book"}
               </h3>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs text-muted-foreground truncate w-full">
                 {job.metadata?.author || "Unknown Author"}
               </p>
             </div>

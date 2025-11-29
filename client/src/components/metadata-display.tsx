@@ -49,18 +49,18 @@ export function MetadataDisplay({
             </div>
           )}
 
-          <div className="flex-1 space-y-3 min-w-0 max-w-full">
+          <div className="flex-1 space-y-3 min-w-0">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Title</Label>
               {editable && onMetadataChange ? (
                 <Input
                   value={metadata.title}
                   onChange={(e) => onMetadataChange({ title: e.target.value })}
-                  className="font-semibold"
+                  className="font-semibold w-full"
                   data-testid="input-metadata-title"
                 />
               ) : (
-                <p className="font-semibold text-sm break-words line-clamp-2" data-testid="text-metadata-title">
+                <p className="font-semibold text-sm break-words line-clamp-2 w-full" data-testid="text-metadata-title">
                   {metadata.title}
                 </p>
               )}
