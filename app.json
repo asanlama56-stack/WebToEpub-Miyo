@@ -13,6 +13,11 @@
       "package": "com.webtobook.app",
       "versionCode": 1
     },
-    "plugins": []
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": "d57c9bca-008b-4a39-a96a-8e409b117e29"
+      }
+    }
   }
 }
