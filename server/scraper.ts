@@ -456,16 +456,26 @@ export async function analyzeUrl(url: string): Promise<{
   console.log(`[Scrape] Detecting cover for ${title}...`);
   const coverUrl = await detectCoverImageUrl($, url);
 
+  let displayCoverUrl = coverUrl;
   let coverImageDataBase64: string | undefined;
+  let proxyUrl: string | undefined;
+
   if (coverUrl) {
     try {
-      const imageData = await downloadImage(coverUrl);
-      if (imageData) {
-        coverImageDataBase64 = imageData.data.toString("base64");
-        console.log("[Scrape] Cover image downloaded and encoded, size:", imageData.data.length);
+      const { produceCoverForMetadata } = await import("./utils/imagePipeline");
+      const result = await produceCoverForMetadata(coverUrl);
+      
+      if (result.type === "data") {
+        displayCoverUrl = result.url;
+        coverImageDataBase64 = result.url.split(",")[1];
+      } else if (result.type === "proxy") {
+        displayCoverUrl = result.url;
+        proxyUrl = result.url;
+      } else {
+        displayCoverUrl = result.url;
       }
     } catch (error) {
-      console.warn("[Scrape] Failed to download cover image:", error instanceof Error ? error.message : String(error));
+      console.warn("[Scrape] Failed to process cover image:", error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -679,15 +689,13 @@ export async function analyzeUrl(url: string): Promise<{
   const contentType = detectContentType(html, url);
   const recommendedFormat = recommendFormat(contentType);
 
-  // Create data URL from base64 for display
-  const displayCoverUrl = coverImageDataBase64 ? `data:image/jpeg;base64,${coverImageDataBase64}` : undefined;
-
   const metadata: BookMetadata = {
     title: title.substring(0, 500),
     author: author.substring(0, 200),
     description: description.substring(0, 2000),
-    coverUrl: displayCoverUrl || coverUrl,
+    coverUrl: displayCoverUrl,
     coverImageData: coverImageDataBase64,
+    proxyUrl,
     sourceUrl: url,
     detectedContentType: contentType,
     recommendedFormat,

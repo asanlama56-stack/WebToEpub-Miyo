@@ -46,6 +46,7 @@ export interface BookMetadata {
   description?: string;
   coverUrl?: string;
   coverImageData?: string;
+  proxyUrl?: string;
   language?: string;
   publisher?: string;
   sourceUrl: string;

@@ -41,6 +41,14 @@ export function MetadataDisplay({
                 alt="Book cover"
                 className="w-24 h-36 object-cover rounded-md border border-card-border"
                 data-testid="img-book-cover"
+                onError={(e) => {
+                  console.error("[UI] Cover image failed to load:", metadata.coverUrl, e);
+                  if (metadata.proxyUrl && metadata.proxyUrl !== metadata.coverUrl) {
+                    console.log("[UI] Attempting fallback to proxy URL:", metadata.proxyUrl);
+                    (e.target as HTMLImageElement).src = metadata.proxyUrl;
+                  }
+                }}
+                onLoad={() => console.log("[UI] Cover loaded OK:", metadata.coverUrl)}
               />
             </div>
           ) : (

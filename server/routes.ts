@@ -1,12 +1,14 @@
 import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import rateLimit from "express-rate-limit";
 import { storage } from "./storage";
 import { analyzeUrl, downloadChaptersParallel } from "./scraper";
 import { generateOutput } from "./generator";
 import { analyzeUrlSchema, startDownloadSchema, type BookMetadata, type DownloadStatusType } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { getImageCache } from "./utils/imagePipeline";
 
 const activeDownloads = new Map<string, { abort: boolean }>();
 const generatedFiles = new Map<string, { buffer: Buffer; filename: string; mimeType: string }>();
@@ -268,6 +270,23 @@ export async function registerRoutes(
     } catch (error) {
       res.status(500).json({ error: "Failed to download file" });
     }
+  });
+
+  const imageLimiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
+
+  app.get("/api/image/:id", imageLimiter, (req: Request, res: Response) => {
+    const id = req.params.id;
+    const imageCache = getImageCache();
+    const entry = imageCache.get<{ buffer: Buffer; mime: string }>(id);
+    
+    if (!entry) {
+      return res.status(404).json({ error: "Image not found" });
+    }
+
+    res.setHeader("Content-Type", entry.mime);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(entry.buffer);
   });
 
   app.get("/api/health", (_req: Request, res: Response) => {
