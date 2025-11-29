@@ -1,0 +1,21 @@
+==============================================
+WebToBook APK Build Guide
+==============================================
+
+Your APK is now ready to build with a native WebView wrapper!
+
+IMPORTANT: Update the Replit URL in App.js:
+- Find: const WEB_APP_URL = 'https://webtobook.replit.dev';
+- Replace with your actual Replit app URL
+
+BUILD COMMAND:
+eas build --platform android
+
+The build will:
+1. Embed your web app in a native container
+2. Display it like a native app with smooth performance
+3. Support all downloads and features
+4. Take 5-15 minutes to complete
+5. Generate an APK file you can install on any Android phone
+
+After build completes, you'll get a download link for the APK file.

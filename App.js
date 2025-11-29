@@ -1,62 +1,56 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 
-const API_BASE = 'https://webtobook-replit.replit.dev'; // Update with your Replit URL
+// IMPORTANT: Replace with your actual Replit app URL
+const WEB_APP_URL = 'https://your-app.replit.dev';
 
 export default function App() {
-  const [jobs, setJobs] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
 
-  React.useEffect(() => {
-    fetchJobs();
-    const interval = setInterval(fetchJobs, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchJobs = async () => {
+  const openWebApp = async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/jobs`);
-      const data = await response.json();
-      setJobs(data);
+      const supported = await Linking.canOpenURL(WEB_APP_URL);
+      if (supported) {
+        await Linking.openURL(WEB_APP_URL);
+      } else {
+        Text.alert('Cannot open the app URL');
+      }
     } catch (error) {
-      console.error('Error fetching jobs:', error);
+      console.error('Error opening URL:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      <View style={styles.content}>
         <Text style={styles.title}>WebToBook</Text>
-        <Text style={styles.subtitle}>Web Novel Converter</Text>
-      </View>
-
-      <ScrollView style={styles.content}>
+        <Text style={styles.subtitle}>Web Novel to EPUB/PDF Converter</Text>
+        
+        <View style={styles.spacing} />
+        
         <TouchableOpacity 
-          style={styles.button}
-          onPress={() => {
-            const url = 'https://your-replit-url.replit.dev';
-            require('react-native').Linking.openURL(url);
-          }}
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={openWebApp}
+          disabled={loading}
         >
-          <Text style={styles.buttonText}>Open Web App</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Open WebToBook App</Text>
+          )}
         </TouchableOpacity>
 
-        <Text style={styles.sectionTitle}>Recent Downloads</Text>
-        {loading ? (
-          <ActivityIndicator size="large" color="#007AFF" />
-        ) : jobs.length === 0 ? (
-          <Text style={styles.emptyText}>No downloads yet. Use the web app to start.</Text>
-        ) : (
-          jobs.map((job) => (
-            <View key={job.id} style={styles.jobCard}>
-              <Text style={styles.jobTitle}>{job.metadata?.title || 'Untitled'}</Text>
-              <Text style={styles.jobStatus}>{job.status}</Text>
-              <Text style={styles.jobProgress}>{job.progress}%</Text>
-            </View>
-          ))
-        )}
-      </ScrollView>
+        <View style={styles.infoBox}>
+          <Text style={styles.infoTitle}>About This App</Text>
+          <Text style={styles.infoText}>
+            This app provides access to WebToBook - your web novel converter.{'\n\n'}
+            Download books from web reading sites and convert them to EPUB, PDF, or HTML format.
+          </Text>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -64,72 +58,61 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    backgroundColor: '#f5f5f5',
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 30,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  spacing: {
+    height: 40,
   },
   button: {
     backgroundColor: '#007AFF',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    textAlign: 'center',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#000',
+  infoBox: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
-  emptyText: {
-    color: '#999',
-    textAlign: 'center',
-    marginVertical: 20,
-  },
-  jobCard: {
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  jobTitle: {
+  infoTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#000',
+    marginBottom: 8,
   },
-  jobStatus: {
-    fontSize: 12,
+  infoText: {
+    fontSize: 13,
     color: '#666',
-    marginTop: 4,
-  },
-  jobProgress: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 4,
+    lineHeight: 20,
   },
 });
