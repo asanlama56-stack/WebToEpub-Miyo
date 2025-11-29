@@ -233,123 +233,147 @@ function recommendFormat(contentType: ContentTypeType): OutputFormatType {
   }
 }
 
-function detectDescription($: cheerio.CheerioAPI): string {
-  let description = "";
+async function detectDescription($: cheerio.CheerioAPI): Promise<string> {
+  const clean = (text: string) =>
+    text.replace(/\s+/g, " ").trim();
 
-  try {
-    const jsonLd = $('script[type="application/ld+json"]').html();
-    if (jsonLd) {
-      const data = JSON.parse(jsonLd);
-      if (data && data["@type"] === "Book" && data.description) {
-        description = data.description;
-      }
-    }
-  } catch {
-    console.warn("[Desc] Failed to parse JSON-LD");
-  }
+  const isPlaceholderText = (t: string) => {
+    const lower = t.toLowerCase();
+    return (
+      lower.includes("read") &&
+      lower.includes("online") &&
+      lower.includes("free")
+    );
+  };
 
-  if (!description) {
-    const selectors = [
-      'meta[property="og:description"]',
-      'meta[name="description"]',
-      'meta[name="book-description"]',
-    ];
-    for (const selector of selectors) {
-      const meta = $(selector).attr("content");
-      if (meta) {
-        description = meta;
-        break;
-      }
-    }
-  }
+  // 1. HIGHEST PRIORITY — Real content sections
+  const realSelectors = [
+    ".book-intro",
+    ".book-desc",
+    ".novel-synopsis",
+    ".story-synopsis",
+    ".synopsis",
+    ".summary",
+    "[data-synopsis]",
+    "[data-summary]",
+    "[data-book-info]",
+    ".book-info p",
+    ".book-content-intro",
+    ".intro",
+    ".desc",
+  ];
 
-  if (!description) {
-    const selectors = [
-      ".description",
-      ".book-description",
-      ".synopsis",
-      ".summary",
-      "#description",
-      "#synopsis",
-      "[data-description]",
-    ];
-    for (const selector of selectors) {
-      const el = $(selector).first().text();
-      if (el && el.length > 20) {
-        description = el;
-        break;
+  for (const sel of realSelectors) {
+    const el = $(sel).first();
+    if (el?.text()) {
+      const text = clean(el.text());
+      if (text.length > 40 && !isPlaceholderText(text)) {
+        console.log("[detectDescription] Found via selector:", sel);
+        return text.substring(0, 500);
       }
     }
   }
 
-  if (description) {
-    return description.trim().replace(/\s+/g, " ").substring(0, 500);
+  // 2. JSON-LD description
+  const jsonLd = $('script[type="application/ld+json"]').html();
+  if (jsonLd) {
+    try {
+      const parsed = JSON.parse(jsonLd);
+      const desc = parsed.description;
+      if (desc && !isPlaceholderText(desc)) {
+        console.log("[detectDescription] Found via JSON-LD");
+        return clean(desc).substring(0, 500);
+      }
+    } catch {}
   }
 
+  // 3. Meta tags (LOW priority because they often contain placeholders)
+  const metaSelectors = [
+    'meta[name="description"]',
+    'meta[property="og:description"]',
+    'meta[name="twitter:description"]'
+  ];
+
+  for (const sel of metaSelectors) {
+    const tag = $(sel).attr("content");
+    if (tag) {
+      const text = clean(tag);
+      if (text.length > 50 && !isPlaceholderText(text)) {
+        console.log("[detectDescription] Found via meta:", sel);
+        return text.substring(0, 500);
+      }
+    }
+  }
+
+  console.log("[detectDescription] No valid description found.");
   return "";
 }
 
-function detectCoverImageUrl(
+async function detectCoverImageUrl(
   $: cheerio.CheerioAPI,
   baseUrl: string
-): string | undefined {
-  let coverUrl = "";
+): Promise<string | undefined> {
+  const isValidImage = (url: string) => {
+    if (!url) return false;
+    const lower = url.toLowerCase();
+    return !(
+      lower.includes("placeholder") ||
+      lower.includes("default") ||
+      lower.includes("no-image") ||
+      lower.length < 10
+    );
+  };
 
-  try {
-    const jsonLd = $('script[type="application/ld+json"]').html();
-    if (jsonLd) {
-      const data = JSON.parse(jsonLd);
-      if (data && data["@type"] === "Book" && data.image) {
-        coverUrl = data.image;
-      }
+  const resolve = (url: string) =>
+    url.startsWith("http") ? url : new URL(url, baseUrl).href;
+
+  // 1. HIGHEST PRIORITY – Real cover containers
+  const coverImgSelectors = [
+    ".book-img img",
+    ".novel-cover img",
+    ".book-cover img",
+    ".cover img",
+    "img.book-cover",
+    "img.cover",
+    "img.novel-cover"
+  ];
+
+  for (const sel of coverImgSelectors) {
+    const url = $(sel).attr("src") || $(sel).attr("data-src");
+    if (url && isValidImage(url)) {
+      console.log("[detectCoverImageUrl] Found via selector:", sel);
+      return resolve(url);
     }
-  } catch {
-    console.warn("[Cover] Failed to parse JSON-LD");
+    if (url) console.log("[detectCoverImageUrl] Rejected placeholder:", url);
   }
 
-  if (!coverUrl) {
-    const selectors = [
-      'meta[property="og:image"]',
-      'meta[property="twitter:image"]',
-      'meta[name="image"]',
-      'link[rel="image_src"]',
-    ];
-    for (const selector of selectors) {
-      const meta = $(selector).attr("content");
-      if (meta) {
-        coverUrl = meta;
-        break;
-      }
+  // 2. OpenGraph / Twitter image
+  const metaSelectors = [
+    'meta[property="og:image"]',
+    'meta[name="twitter:image"]'
+  ];
+
+  for (const sel of metaSelectors) {
+    const url = $(sel).attr("content");
+    if (url && isValidImage(url)) {
+      console.log("[detectCoverImageUrl] Found via meta:", sel);
+      return resolve(url);
+    }
+    if (url) console.log("[detectCoverImageUrl] Rejected meta placeholder:", url);
+  }
+
+  // 3. ANY <img> near title
+  const title = $("h1, .book-title, .novel-title").first();
+  if (title.length) {
+    const nearbyImg = title.closest("div").find("img").first();
+    const url = nearbyImg.attr("src");
+    if (url && isValidImage(url)) {
+      console.log("[detectCoverImageUrl] Found via nearby title");
+      return resolve(url);
     }
   }
 
-  if (!coverUrl) {
-    const selectors = [
-      ".cover img",
-      ".book-cover img",
-      ".novel-cover img",
-      'img[class*="cover"]',
-      'img[id*="cover"]',
-    ];
-    for (const selector of selectors) {
-      const img = $(selector).first().attr("src");
-      if (img) {
-        coverUrl = img;
-        break;
-      }
-    }
-  }
-
-  if (coverUrl) {
-    try {
-      const url = new URL(coverUrl, baseUrl);
-      return url.href;
-    } catch {
-      console.error(`[Cover] Invalid cover URL: ${coverUrl}`);
-      return undefined;
-    }
-  }
-
+  console.log("[detectCoverImageUrl] No valid cover image found.");
   return undefined;
 }
 
@@ -427,10 +451,10 @@ export async function analyzeUrl(url: string): Promise<{
     "Unknown Author";
 
   console.log(`[Scrape] Detecting description for ${title}...`);
-  const description = detectDescription($);
+  const description = await detectDescription($);
 
   console.log(`[Scrape] Detecting cover for ${title}...`);
-  const coverUrl = detectCoverImageUrl($, url);
+  const coverUrl = await detectCoverImageUrl($, url);
 
   let coverImageData: Buffer | undefined;
   if (coverUrl) {

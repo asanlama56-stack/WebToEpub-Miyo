@@ -1,0 +1,195 @@
+Below is the improved version of both functions exactly as requested, following your multi-strategy structure but with corrected priority, placeholder filtering, and debug logging.
+Code is written cleanly and can be pasted directly into server/scraper.ts.
+✅ Updated detectDescription()
+Key Improvements:
+Prioritizes real synopsis sections first
+Avoids generic meta descriptions like: "Read X Novel online free"
+Adds selector groups for common Wuxia/WN sites
+Rejects useless 1-sentence taglines
+Adds debug logs for every detection attempt
+Copy code
+Ts
+async function detectDescription($: cheerio.Root): Promise<string | null> {
+    const clean = (text: string) =>
+        text.replace(/\s+/g, " ").trim();
+
+    const isPlaceholderText = (t: string) => {
+        const lower = t.toLowerCase();
+        return (
+            lower.includes("read") &&
+            lower.includes("online") &&
+            lower.includes("free")
+        );
+    };
+
+    //
+    // 1. HIGHEST PRIORITY — Real content sections
+    //
+    const realSelectors = [
+        ".book-intro",
+        ".book-desc",
+        ".novel-synopsis",
+        ".story-synopsis",
+        ".synopsis",
+        ".summary",
+        "[data-synopsis]",
+        "[data-summary]",
+        "[data-book-info]",
+        ".book-info p",
+        ".book-content-intro",
+        ".intro",
+        ".desc",
+    ];
+
+    for (const sel of realSelectors) {
+        const el = $(sel).first();
+        if (el?.text()) {
+            const text = clean(el.text());
+            if (text.length > 40 && !isPlaceholderText(text)) {
+                console.log("[detectDescription] Found via selector:", sel);
+                return text;
+            }
+        }
+    }
+
+    //
+    // 2. JSON-LD description
+    //
+    const jsonLd = $('script[type="application/ld+json"]').html();
+    if (jsonLd) {
+        try {
+            const parsed = JSON.parse(jsonLd);
+            const desc = parsed.description;
+            if (desc && !isPlaceholderText(desc)) {
+                console.log("[detectDescription] Found via JSON-LD");
+                return clean(desc);
+            }
+        } catch {}
+    }
+
+    //
+    // 3. Meta tags (LOW priority because they often contain placeholders)
+    //
+    const metaSelectors = [
+        'meta[name="description"]',
+        'meta[property="og:description"]',
+        'meta[name="twitter:description"]'
+    ];
+
+    for (const sel of metaSelectors) {
+        const tag = $(sel).attr("content");
+        if (tag) {
+            const text = clean(tag);
+            if (text.length > 50 && !isPlaceholderText(text)) {
+                console.log("[detectDescription] Found via meta:", sel);
+                return text;
+            }
+        }
+    }
+
+    console.log("[detectDescription] No valid description found.");
+    return null;
+}
+✅ Updated detectCoverImageUrl()
+Key Improvements:
+Rejects placeholder/default images
+Prioritizes real cover containers such as .book-img img
+Adds validation for URL (no “placeholder”, “default”, “no-image”)
+Debug logs for each match attempt
+Copy code
+Ts
+async function detectCoverImageUrl($: cheerio.Root, baseUrl: string): Promise<string | null> {
+    const isValidImage = (url: string) => {
+        if (!url) return false;
+        const lower = url.toLowerCase();
+        return !(
+            lower.includes("placeholder") ||
+            lower.includes("default") ||
+            lower.includes("no-image") ||
+            lower.length < 10
+        );
+    };
+
+    const resolve = (url: string) =>
+        url.startsWith("http") ? url : new URL(url, baseUrl).href;
+
+    //
+    // 1. HIGHEST PRIORITY – Real cover containers
+    //
+    const coverImgSelectors = [
+        ".book-img img",
+        ".novel-cover img",
+        ".book-cover img",
+        ".cover img",
+        "img.book-cover",
+        "img.cover",
+        "img.novel-cover"
+    ];
+
+    for (const sel of coverImgSelectors) {
+        const url = $(sel).attr("src") || $(sel).attr("data-src");
+        if (url && isValidImage(url)) {
+            console.log("[detectCoverImageUrl] Found via selector:", sel);
+            return resolve(url);
+        }
+        if (url) console.log("[detectCoverImageUrl] Rejected placeholder:", url);
+    }
+
+    //
+    // 2. OpenGraph / Twitter image
+    //
+    const metaSelectors = [
+        'meta[property="og:image"]',
+        'meta[name="twitter:image"]'
+    ];
+
+    for (const sel of metaSelectors) {
+        const url = $(sel).attr("content");
+        if (url && isValidImage(url)) {
+            console.log("[detectCoverImageUrl] Found via meta:", sel);
+            return resolve(url);
+        }
+        if (url) console.log("[detectCoverImageUrl] Rejected meta placeholder:", url);
+    }
+
+    //
+    // 3. ANY <img> near title
+    //
+    const title = $("h1, .book-title, .novel-title").first();
+    if (title.length) {
+        const nearbyImg = title.closest("div").find("img").first();
+        const url = nearbyImg.attr("src");
+        if (url && isValidImage(url)) {
+            console.log("[detectCoverImageUrl] Found via nearby title");
+            return resolve(url);
+        }
+    }
+
+    console.log("[detectCoverImageUrl] No valid cover image found.");
+    return null;
+}
+🧠 Why These Changes Work
+✔ 1. Real synopsis is prioritized
+The previous version immediately accepted meta descriptions, which on WuxiaSpot are ALWAYS generic placeholders like:
+“Read Top Talent, Game Upgrade Novel Online Free”
+The updated version now:
+Uses .book-intro, .book-desc, .synopsis, .summary, etc.
+Only checks meta tags after searching real content.
+Rejects “Read X Online Free” patterns.
+✔ 2. Placeholders are automatically rejected
+Cover URLs containing:
+Copy code
+
+placeholder
+default
+no-image
+are ignored.
+This eliminates the WuxiaSpot placeholder:
+placeholder-158.jpg
+✔ 3. Selectors now match real WuxiaSpot structure
+WuxiaSpot typically uses:
+.book-img img → cover
+.book-intro → synopsis
+And these are now top priority.
+✔ 4. Debug Logging
+Both functions now log which selector matched something, making debugging easy.
