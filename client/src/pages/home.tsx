@@ -204,11 +204,39 @@ export default function Home() {
     });
   }, [currentJob, selectedChapterIds, outputFormat, editableMetadata, settings, downloadMutation, toast]);
 
-  const handleDownloadFile = useCallback((job: DownloadJob) => {
+  const handleDownloadFile = useCallback(async (job: DownloadJob) => {
     if (job.outputPath) {
-      window.open(`/api/download-file/${job.id}`, "_blank");
+      try {
+        const response = await fetch(`/api/download-file/${job.id}`);
+        if (!response.ok) throw new Error("Download failed");
+        
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get("content-disposition") || "";
+        const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+        const filename = filenameMatch ? filenameMatch[1] : `book.${job.outputFormat}`;
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Download Started",
+          description: `${filename} is downloading to your device`,
+        });
+      } catch (error) {
+        toast({
+          title: "Download Failed",
+          description: "Could not download the file. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
-  }, []);
+  }, [toast]);
 
   const handleCancelJob = useCallback(async (jobId: string) => {
     try {
