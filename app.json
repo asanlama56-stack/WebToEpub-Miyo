@@ -4,20 +4,27 @@
     "slug": "webtobook",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./icon.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
       "supportsTabletMode": true,
       "bundleIdentifier": "com.webtobook.app"
     },
     "android": {
-      "package": "com.webtobook.app",
-      "versionCode": 1
+      "adaptiveIcon": {
+        "foregroundImage": "./adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.webtobook.app"
     },
-    "extra": {
-      "eas": {
-        "projectId": "d57c9bca-008b-4a39-a96a-8e409b117e29"
-      }
+    "web": {
+      "favicon": "./favicon.png"
     },
-    "owner": "teddysugar_385"
+    "plugins": []
   }
 }
