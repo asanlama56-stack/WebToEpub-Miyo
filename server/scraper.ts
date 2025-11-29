@@ -237,8 +237,8 @@ export async function analyzeUrl(url: string): Promise<{
   metadata: BookMetadata;
   chapters: Chapter[];
 }> {
-  const html = await fetchWithRetry(url);
-  const $ = cheerio.load(html);
+  let html = await fetchWithRetry(url);
+  let $ = cheerio.load(html);
 
   const title =
     $("h1").first().text().trim() ||
@@ -268,67 +268,105 @@ export async function analyzeUrl(url: string): Promise<{
 
   const chapters: Chapter[] = [];
   const seenUrls = new Set<string>();
+  let currentPageUrl = url;
+  let pageCount = 0;
+  const maxPages = 50;
 
-  for (const selector of chapterLinkSelectors) {
-    $(selector).each((index, element) => {
-      const $el = $(element);
-      const href = $el.attr("href");
-      const text = $el.text().trim();
+  while (currentPageUrl && pageCount < maxPages) {
+    pageCount++;
+    html = await fetchWithRetry(currentPageUrl);
+    $ = cheerio.load(html);
 
-      if (!href || !text) return;
+    // Extract chapters from current page using all selectors
+    for (const selector of chapterLinkSelectors) {
+      $(selector).each((index, element) => {
+        const $el = $(element);
+        const href = $el.attr("href");
+        const text = $el.text().trim();
 
-      let fullUrl: string;
-      try {
-        fullUrl = new URL(href, url).href;
-      } catch {
-        return;
+        if (!href || !text) return;
+
+        let fullUrl: string;
+        try {
+          fullUrl = new URL(href, currentPageUrl).href;
+        } catch {
+          return;
+        }
+
+        if (seenUrls.has(fullUrl)) return;
+
+        if (isChapterLink(text, href)) {
+          seenUrls.add(fullUrl);
+          chapters.push({
+            id: randomUUID(),
+            title: text.substring(0, 200),
+            url: fullUrl,
+            index: chapters.length,
+            status: "pending",
+          });
+        }
+      });
+    }
+
+    // Fallback: if no chapters found with specific selectors, try all links
+    if (chapters.length === 0) {
+      $("a").each((index, element) => {
+        const $el = $(element);
+        const href = $el.attr("href");
+        const text = $el.text().trim();
+
+        if (!href || !text || text.length > 200) return;
+
+        let fullUrl: string;
+        try {
+          fullUrl = new URL(href, currentPageUrl).href;
+        } catch {
+          return;
+        }
+
+        if (seenUrls.has(fullUrl)) return;
+
+        if (isChapterLink(text, href)) {
+          seenUrls.add(fullUrl);
+          chapters.push({
+            id: randomUUID(),
+            title: text,
+            url: fullUrl,
+            index: chapters.length,
+            status: "pending",
+          });
+        }
+      });
+    }
+
+    // Look for next page link
+    const nextPageSelectors = [
+      'a[rel="next"]',
+      'a.next',
+      'a:contains("Next")',
+      '.pagination a.next',
+      'a[aria-label*="Next"]',
+      'a:contains("→")',
+      'a:contains("»")',
+    ];
+
+    let nextPageUrl: string | null = null;
+    for (const selector of nextPageSelectors) {
+      const nextLink = $(selector).first();
+      if (nextLink.length > 0) {
+        const href = nextLink.attr("href");
+        if (href) {
+          try {
+            nextPageUrl = new URL(href, currentPageUrl).href;
+            break;
+          } catch {
+            continue;
+          }
+        }
       }
+    }
 
-      if (seenUrls.has(fullUrl)) return;
-
-      if (isChapterLink(text, href)) {
-        seenUrls.add(fullUrl);
-        chapters.push({
-          id: randomUUID(),
-          title: text.substring(0, 200),
-          url: fullUrl,
-          index: chapters.length,
-          status: "pending",
-        });
-      }
-    });
-
-    if (chapters.length > 0) break;
-  }
-
-  if (chapters.length === 0) {
-    $("a").each((index, element) => {
-      const $el = $(element);
-      const href = $el.attr("href");
-      const text = $el.text().trim();
-
-      if (!href || !text || text.length > 200) return;
-
-      let fullUrl: string;
-      try {
-        fullUrl = new URL(href, url).href;
-      } catch {
-        return;
-      }
-
-      if (seenUrls.has(fullUrl)) return;
-
-      if (isChapterLink(text, href)) {
-        seenUrls.add(fullUrl);
-        chapters.push({
-          id: randomUUID(),
-          title: text,
-          url: fullUrl,
-          index: chapters.length,
-          status: "pending",
-        });
-      }
-    });
+    currentPageUrl = nextPageUrl || "";
   }
 
   chapters.sort((a, b) => {
