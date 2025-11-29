@@ -8,6 +8,7 @@ export interface IStorage {
   updateJob(id: string, updates: Partial<DownloadJob>): Promise<DownloadJob | undefined>;
   updateJobChapters(id: string, chapters: Chapter[]): Promise<DownloadJob | undefined>;
   updateChapterStatus(jobId: string, chapterId: string, status: DownloadStatusType, content?: string, error?: string): Promise<void>;
+  updateAnalysisProgress(jobId: string, progress: number): Promise<void>;
   deleteJob(id: string): Promise<boolean>;
   clearCompletedJobs(): Promise<void>;
 }
@@ -86,6 +87,14 @@ export class MemStorage implements IStorage {
 
   async deleteJob(id: string): Promise<boolean> {
     return this.jobs.delete(id);
+  }
+
+  async updateAnalysisProgress(jobId: string, progress: number): Promise<void> {
+    const job = this.jobs.get(jobId);
+    if (!job) return;
+    
+    job.progress = Math.min(progress, 99);
+    this.jobs.set(jobId, job);
   }
 
   async clearCompletedJobs(): Promise<void> {

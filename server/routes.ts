@@ -21,16 +21,20 @@ export async function registerRoutes(
       const { url } = parsed;
 
       const job = await storage.createJob(url);
-      await storage.updateJob(job.id, { status: "analyzing" });
+      await storage.updateJob(job.id, { status: "analyzing", progress: 0 });
 
       try {
+        await storage.updateAnalysisProgress(job.id, 20);
         const { metadata, chapters } = await analyzeUrl(url);
 
+        await storage.updateAnalysisProgress(job.id, 80);
         await storage.updateJobChapters(job.id, chapters);
+        
         const updatedJob = await storage.updateJob(job.id, {
           metadata,
           status: "pending",
           selectedChapterIds: chapters.map((ch) => ch.id),
+          progress: 100,
         });
 
         res.json({
@@ -42,6 +46,7 @@ export async function registerRoutes(
         await storage.updateJob(job.id, {
           status: "error",
           error: errorMessage,
+          progress: 0,
         });
 
         res.json({

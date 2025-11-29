@@ -374,7 +374,8 @@ export async function analyzeUrl(url: string): Promise<{
     const urlPattern = url.match(/(.+?\/novel\/[^_]+)(_\d+)?\.html?/);
     if (urlPattern) {
       const baseUrl = urlPattern[1];
-      const maxChaptersToTry = 500;
+      const maxChaptersToTry = 300;
+      let consecutiveMisses = 0;
       
       for (let i = 1; i <= maxChaptersToTry; i++) {
         const chapterUrl = `${baseUrl}_${i}.html`;
@@ -382,7 +383,7 @@ export async function analyzeUrl(url: string): Promise<{
           try {
             const response = await fetch(chapterUrl, {
               headers: { "User-Agent": getRandomUserAgent() },
-              signal: AbortSignal.timeout(5000),
+              signal: AbortSignal.timeout(3000),
             });
             if (response.ok) {
               chapters.push({
@@ -393,9 +394,15 @@ export async function analyzeUrl(url: string): Promise<{
                 status: "pending",
               });
               seenUrls.add(chapterUrl);
+              consecutiveMisses = 0;
+            } else {
+              consecutiveMisses++;
+              // Stop if 10 consecutive chapters don't exist
+              if (consecutiveMisses > 10) break;
             }
           } catch {
-            // Skip this chapter if fetch fails
+            consecutiveMisses++;
+            if (consecutiveMisses > 10) break;
           }
         }
       }

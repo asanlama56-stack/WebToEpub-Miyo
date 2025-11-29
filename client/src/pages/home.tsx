@@ -75,6 +75,21 @@ export default function Home() {
     },
   });
 
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+
+  const { data: analysisJob } = useQuery<DownloadJob | null>({
+    queryKey: ["/api/jobs"],
+    refetchInterval: 500,
+    select: (jobs) => {
+      const analyzing = (jobs || []).find((j) => j.status === "analyzing");
+      if (analyzing) {
+        setAnalysisProgress(analyzing.progress);
+      }
+      return analyzing || null;
+    },
+    enabled: analyzeMutation.isPending,
+  });
+
   const downloadMutation = useMutation({
     mutationFn: async (params: {
       jobId: string;
@@ -204,6 +219,21 @@ export default function Home() {
           onAnalyze={handleAnalyze}
           isLoading={analyzeMutation.isPending}
         />
+
+        {analyzeMutation.isPending && (
+          <div className="p-6 rounded-lg border border-border bg-card space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="font-medium text-sm">Analyzing URL and detecting chapters...</p>
+              <p className="text-xs text-muted-foreground">{Math.round(analysisProgress)}%</p>
+            </div>
+            <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${analysisProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {analyzeMutation.isError && (
           <Alert variant="destructive">
