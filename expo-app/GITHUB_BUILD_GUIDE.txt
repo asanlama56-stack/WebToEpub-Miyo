@@ -1,0 +1,77 @@
+========================================
+BUILD APK ON GITHUB (Works on Mobile!)
+========================================
+
+Perfect solution for mobile users!
+GitHub builds your APK for FREE automatically.
+
+QUICK START (5 minutes):
+
+1. Create GitHub Account
+   Go to: https://github.com/signup
+   (skip if you already have one)
+
+2. Create Repository
+   Go to: https://github.com/new
+   - Name: "webtobook-apk"
+   - Make it Public
+   - Click "Create"
+
+3. Upload Your Code
+   In your new repository:
+   - Click "Add file" → "Upload files"
+   - Drag and drop the expo-app folder
+   - Commit changes
+   - Done!
+
+4. GitHub Builds Automatically
+   - Go to "Actions" tab
+   - Wait 5-10 minutes
+   - Download APK from "Releases"
+
+5. Install on Phone
+   - Download APK
+   - Tap to install
+   - Enable "Unknown Sources" if needed
+
+6. Upload to Google Play Store
+   - Create dev account ($25)
+   - Upload APK in Play Console
+   - Submit for review
+
+========================================
+WHY THIS WORKS:
+========================================
+✓ Free cloud build
+✓ No Android Studio needed
+✓ Works on mobile browser
+✓ Automatic on every push
+✓ APK always available in Releases
+
+========================================
+TROUBLESHOOTING:
+========================================
+
+If build fails in Actions:
+1. Click "Actions" tab
+2. Click the failed workflow
+3. Look at the error message
+4. Common issues:
+   - Missing EXPO_TOKEN (need Expo account)
+   - Network timeout (try again)
+   - Java version (GitHub handles this)
+
+If you need EXPO_TOKEN:
+1. Go to: https://expo.dev
+2. Create account
+3. Get token from settings
+4. Add to GitHub repo:
+   Settings → Secrets → New Secret
+   Name: EXPO_TOKEN
+   Value: (paste your token)
+
+========================================
+YOU'RE ALL SET!
+========================================
+Download expo-app folder and upload to GitHub.
+Let GitHub build your APK automatically.
