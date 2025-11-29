@@ -233,6 +233,179 @@ function recommendFormat(contentType: ContentTypeType): OutputFormatType {
   }
 }
 
+function detectDescription($: cheerio.CheerioAPI): string {
+  let description = "";
+
+  try {
+    const jsonLd = $('script[type="application/ld+json"]').html();
+    if (jsonLd) {
+      const data = JSON.parse(jsonLd);
+      if (data && data["@type"] === "Book" && data.description) {
+        description = data.description;
+      }
+    }
+  } catch {
+    console.warn("[Desc] Failed to parse JSON-LD");
+  }
+
+  if (!description) {
+    const selectors = [
+      'meta[property="og:description"]',
+      'meta[name="description"]',
+      'meta[name="book-description"]',
+    ];
+    for (const selector of selectors) {
+      const meta = $(selector).attr("content");
+      if (meta) {
+        description = meta;
+        break;
+      }
+    }
+  }
+
+  if (!description) {
+    const selectors = [
+      ".description",
+      ".book-description",
+      ".synopsis",
+      ".summary",
+      "#description",
+      "#synopsis",
+      "[data-description]",
+    ];
+    for (const selector of selectors) {
+      const el = $(selector).first().text();
+      if (el && el.length > 20) {
+        description = el;
+        break;
+      }
+    }
+  }
+
+  if (description) {
+    return description.trim().replace(/\s+/g, " ").substring(0, 500);
+  }
+
+  return "";
+}
+
+function detectCoverImageUrl(
+  $: cheerio.CheerioAPI,
+  baseUrl: string
+): string | undefined {
+  let coverUrl = "";
+
+  try {
+    const jsonLd = $('script[type="application/ld+json"]').html();
+    if (jsonLd) {
+      const data = JSON.parse(jsonLd);
+      if (data && data["@type"] === "Book" && data.image) {
+        coverUrl = data.image;
+      }
+    }
+  } catch {
+    console.warn("[Cover] Failed to parse JSON-LD");
+  }
+
+  if (!coverUrl) {
+    const selectors = [
+      'meta[property="og:image"]',
+      'meta[property="twitter:image"]',
+      'meta[name="image"]',
+      'link[rel="image_src"]',
+    ];
+    for (const selector of selectors) {
+      const meta = $(selector).attr("content");
+      if (meta) {
+        coverUrl = meta;
+        break;
+      }
+    }
+  }
+
+  if (!coverUrl) {
+    const selectors = [
+      ".cover img",
+      ".book-cover img",
+      ".novel-cover img",
+      'img[class*="cover"]',
+      'img[id*="cover"]',
+    ];
+    for (const selector of selectors) {
+      const img = $(selector).first().attr("src");
+      if (img) {
+        coverUrl = img;
+        break;
+      }
+    }
+  }
+
+  if (coverUrl) {
+    try {
+      const url = new URL(coverUrl, baseUrl);
+      return url.href;
+    } catch {
+      console.error(`[Cover] Invalid cover URL: ${coverUrl}`);
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+async function downloadImage(
+  url: string
+): Promise<{ data: Buffer; contentType: string } | undefined> {
+  if (!url) return undefined;
+
+  let attempts = 0;
+  while (attempts < 3) {
+    try {
+      const response = await fetch(url, {
+        timeout: 15000,
+        headers: {
+          Accept: "image/jpeg,image/png,image/webp,*/*",
+          "User-Agent": getRandomUserAgent(),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      const contentType = response.headers.get("content-type") || "";
+
+      if (
+        contentType.includes("image/jpeg") ||
+        contentType.includes("image/png") ||
+        contentType.includes("image/webp")
+      ) {
+        console.log(`[Image] Downloaded ${url} (${contentType})`);
+        return {
+          data: Buffer.from(buffer),
+          contentType,
+        };
+      }
+
+      console.warn(`[Image] Invalid content type: ${contentType}`);
+      return undefined;
+    } catch (error) {
+      attempts++;
+      console.warn(
+        `[Image] Download attempt ${attempts} failed for ${url}:`,
+        error instanceof Error ? error.message : String(error)
+      );
+      if (attempts < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+  }
+
+  console.error(`[Image] All attempts failed for ${url}`);
+  return undefined;
+}
+
 export async function analyzeUrl(url: string): Promise<{
   metadata: BookMetadata;
   chapters: Chapter[];
@@ -253,18 +426,23 @@ export async function analyzeUrl(url: string): Promise<{
     $('[class*="author"]').first().text().trim() ||
     "Unknown Author";
 
-  const description =
-    $('meta[name="description"]').attr("content") ||
-    $('meta[property="og:description"]').attr("content") ||
-    $(".description").first().text().trim() ||
-    $(".synopsis").first().text().trim() ||
-    "";
+  console.log(`[Scrape] Detecting description for ${title}...`);
+  const description = detectDescription($);
 
-  const coverUrl =
-    $('meta[property="og:image"]').attr("content") ||
-    $('img[class*="cover"]').first().attr("src") ||
-    $(".book-cover img").first().attr("src") ||
-    undefined;
+  console.log(`[Scrape] Detecting cover for ${title}...`);
+  const coverUrl = detectCoverImageUrl($, url);
+
+  let coverImageData: Buffer | undefined;
+  if (coverUrl) {
+    try {
+      const imageData = await downloadImage(coverUrl);
+      if (imageData) {
+        coverImageData = imageData.data;
+      }
+    } catch (error) {
+      console.warn("[Scrape] Failed to download cover image:", error instanceof Error ? error.message : String(error));
+    }
+  }
 
   const chapters: Chapter[] = [];
   const seenUrls = new Set<string>();
