@@ -102,6 +102,9 @@ export async function registerRoutes(
       const startTime = Date.now();
       let completedCount = 0;
 
+      const batchSize = 500;
+      let lastBatchGenerated = 0;
+
       downloadChaptersParallel(
         chaptersToDownload,
         concurrency,
@@ -130,10 +133,14 @@ export async function registerRoutes(
               downloadSpeed: Math.round(speed * 1000),
               eta: Math.round(eta),
             });
-          }
 
-          if (completedCount === chaptersToDownload.length) {
-            await processAndGenerate(jobId, outputFormat);
+            // Generate batch if we've completed batchSize chapters
+            if (completedCount - lastBatchGenerated >= batchSize || completedCount === chaptersToDownload.length) {
+              if (completedCount === chaptersToDownload.length) {
+                await processAndGenerate(jobId, outputFormat);
+              }
+              lastBatchGenerated = completedCount;
+            }
           }
         }
       );

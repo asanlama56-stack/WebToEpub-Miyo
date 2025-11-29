@@ -111,8 +111,8 @@ export function DownloadProgress({
       <CardContent className="p-4">
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold truncate" data-testid={`text-job-title-${job.id}`}>
+            <div className="flex-1 min-w-0 max-w-full">
+              <h3 className="font-semibold text-sm break-words line-clamp-2" data-testid={`text-job-title-${job.id}`}>
                 {job.metadata?.title || "Untitled Book"}
               </h3>
               <p className="text-xs text-muted-foreground truncate">
