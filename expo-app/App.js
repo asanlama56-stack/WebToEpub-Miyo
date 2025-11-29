@@ -283,6 +283,35 @@ export default function App() {
     }
   };
 
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMessage = chatInput;
+    setChatInput('');
+    setChatMessages([...chatMessages, { id: Date.now(), text: userMessage, sender: 'user' }]);
+    setChatLoading(true);
+
+    try {
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 300 },
+        }),
+      });
+
+      if (!response.ok) throw new Error('AI error');
+      const data = await response.json();
+      const aiReply = data.candidates[0].content.parts[0].text;
+      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: aiReply, sender: 'ai' }]);
+    } catch (error) {
+      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: 'Sorry, I encountered an error. Please try again.', sender: 'ai' }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -416,6 +445,56 @@ export default function App() {
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSummaryModal(false)}>
               <Text style={styles.buttonText}>Close</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <TouchableOpacity style={styles.floatingButton} onPress={() => setChatOpen(true)}>
+        <Text style={styles.floatingButtonText}>🤖</Text>
+      </TouchableOpacity>
+
+      <Modal visible={chatOpen} transparent={true} animationType="slide">
+        <View style={styles.chatModal}>
+          <View style={styles.chatPanel}>
+            <View style={styles.chatHeader}>
+              <Text style={styles.chatHeaderTitle}>AI Assistant</Text>
+              <TouchableOpacity onPress={() => setChatOpen(false)}>
+                <Text style={styles.chatHeaderClose}>×</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.chatMessages}>
+              {chatMessages.length === 0 && (
+                <Text style={{ textAlign: 'center', color: '#999', marginTop: 20, fontSize: 13 }}>
+                  Ask me anything about the app or your books!
+                </Text>
+              )}
+              {chatMessages.map(msg => (
+                <View key={msg.id} style={[styles.chatMessage, msg.sender === 'user' ? styles.chatMessageUser : styles.chatMessageAI]}>
+                  <Text style={[styles.chatMessageText, msg.sender === 'user' ? styles.chatMessageUserText : styles.chatMessageAIText]}>
+                    {msg.text}
+                  </Text>
+                </View>
+              ))}
+              {chatLoading && (
+                <View style={[styles.chatMessage, styles.chatMessageAI]}>
+                  <ActivityIndicator size="small" color="#10B981" />
+                </View>
+              )}
+            </ScrollView>
+            <View style={styles.chatInput}>
+              <TextInput
+                style={styles.chatTextInput}
+                placeholder="Type a message..."
+                value={chatInput}
+                onChangeText={setChatInput}
+                editable={!chatLoading}
+                placeholderTextColor="#999"
+                multiline
+              />
+              <TouchableOpacity style={styles.chatSendBtn} onPress={handleSendChat} disabled={chatLoading || !chatInput.trim()}>
+                <Text style={{ fontSize: 16, color: '#fff' }}>→</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
