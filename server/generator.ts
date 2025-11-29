@@ -36,10 +36,13 @@ function createContainer(): string {
 
 function createContentOpf(
   metadata: BookMetadata,
-  chapters: { id: string; title: string }[]
+  chapters: { id: string; title: string }[],
+  hasCover: boolean = false
 ): string {
   const uuid = generateUUID();
   const now = new Date().toISOString();
+
+  const coverManifestItem = hasCover ? `    <item id="cover" href="cover.jpg" media-type="image/jpeg"/>\n` : "";
 
   const manifestItems = chapters
     .map((ch, idx) => `    <item id="chapter${idx}" href="chapter${idx}.xhtml" media-type="application/xhtml+xml"/>`)
@@ -58,12 +61,13 @@ function createContentOpf(
     <dc:language>${metadata.language || "en"}</dc:language>
     <dc:description>${escapeXml(metadata.description || "")}</dc:description>
     <dc:source>${escapeXml(metadata.sourceUrl)}</dc:source>
+    ${hasCover ? `<meta name="cover" content="cover"/>` : ""}
     <meta property="dcterms:modified">${now.slice(0, 19)}Z</meta>
   </metadata>
   <manifest>
     <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
     <item id="css" href="style.css" media-type="text/css"/>
-${manifestItems}
+${coverManifestItem}${manifestItems}
   </manifest>
   <spine>
 ${spineItems}
@@ -235,8 +239,9 @@ export async function generateEpub(
     archive.append(createContainer(), { name: "META-INF/container.xml" });
 
     const chaptersWithContent = chapters.filter((ch) => ch.content);
+    const hasCover = !!metadata.coverImageData;
 
-    archive.append(createContentOpf(metadata, chaptersWithContent), {
+    archive.append(createContentOpf(metadata, chaptersWithContent, hasCover), {
       name: "OEBPS/content.opf",
     });
 
@@ -245,6 +250,11 @@ export async function generateEpub(
     });
 
     archive.append(createStyleCss(), { name: "OEBPS/style.css" });
+
+    if (metadata.coverImageData) {
+      const coverBuffer = Buffer.from(metadata.coverImageData, "base64");
+      archive.append(coverBuffer, { name: "OEBPS/cover.jpg" });
+    }
 
     chaptersWithContent.forEach((chapter, index) => {
       const xhtml = createChapterXhtml(chapter.title, chapter.content || "");

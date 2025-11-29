@@ -456,12 +456,13 @@ export async function analyzeUrl(url: string): Promise<{
   console.log(`[Scrape] Detecting cover for ${title}...`);
   const coverUrl = await detectCoverImageUrl($, url);
 
-  let coverImageData: Buffer | undefined;
+  let coverImageDataBase64: string | undefined;
   if (coverUrl) {
     try {
       const imageData = await downloadImage(coverUrl);
       if (imageData) {
-        coverImageData = imageData.data;
+        coverImageDataBase64 = imageData.data.toString("base64");
+        console.log("[Scrape] Cover image downloaded and encoded, size:", imageData.data.length);
       }
     } catch (error) {
       console.warn("[Scrape] Failed to download cover image:", error instanceof Error ? error.message : String(error));
@@ -683,6 +684,7 @@ export async function analyzeUrl(url: string): Promise<{
     author: author.substring(0, 200),
     description: description.substring(0, 2000),
     coverUrl,
+    coverImageData: coverImageDataBase64,
     sourceUrl: url,
     detectedContentType: contentType,
     recommendedFormat,
