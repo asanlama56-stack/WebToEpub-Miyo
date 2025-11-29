@@ -1,0 +1,130 @@
+========================================
+GITHUB UPLOAD - SIMPLEST WAY (MOBILE)
+========================================
+
+Go to: https://github.com/new on your phone
+
+Create repository:
+- Name: webtobook-apk
+- Public
+- Create
+
+Then click "creating a new file" link
+
+COPY AND PASTE EACH SECTION BELOW:
+
+=====================================
+FILE 1: Click "Add file" > "Create new file"
+Filename: package.json
+
+{
+  "name": "webtobook-expo",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android"
+  },
+  "dependencies": {
+    "expo": "^52.0.0",
+    "expo-file-system": "^17.0.0",
+    "expo-sharing": "^13.0.0",
+    "react": "^18.3.1",
+    "react-native": "^0.75.0"
+  }
+}
+
+Click "Commit new file"
+
+=====================================
+FILE 2: Click "Add file" > "Create new file"
+Filename: app.json
+
+{
+  "expo": {
+    "name": "WebToBook",
+    "slug": "webtobook-offline",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.webtobook.offline",
+      "versionCode": 1
+    },
+    "plugins": []
+  }
+}
+
+Click "Commit new file"
+
+=====================================
+FILE 3: Click "Add file" > "Create new file"
+Filename: index.js
+
+import { registerRootComponent } from 'expo';
+import App from './App';
+
+registerRootComponent(App);
+
+Click "Commit new file"
+
+=====================================
+FILE 4: Click "Add file" > "Create new file"
+Filename: App.js
+
+(Copy the ENTIRE content from:
+https://replit.com/@TeddySugar_385/webtobook?v=1
+Look in expo-app/App.js and copy everything)
+
+Click "Commit new file"
+
+=====================================
+FILE 5: Click "Add file" > "Create new file"
+Filename: .github/workflows/build-apk.yml
+
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Set up Java 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+      
+      - name: Build APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas build --platform android --non-interactive --wait
+
+Click "Commit new file"
+
+=====================================
+
+DONE! 
+
+GitHub will automatically build your APK.
+
+Check the "Actions" tab - it starts building.
+Wait 5-10 minutes.
+Download APK from "Releases" tab.
+
+That's it!
