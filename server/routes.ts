@@ -8,9 +8,8 @@ import { generateOutput } from "./generator";
 import { analyzeUrlSchema, startDownloadSchema, type BookMetadata, type DownloadStatusType } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
-import { getImageCache } from "./utils/imagePipeline";
+import { getImageCache } from "./pipeline/imagePipeline";
 import { createImageJob, getImageJob } from "./jobs/imageJobs";
-import { validateImageJob } from "./imageValidator";
 
 const activeDownloads = new Map<string, { abort: boolean }>();
 const generatedFiles = new Map<string, { buffer: Buffer; filename: string; mimeType: string }>();
