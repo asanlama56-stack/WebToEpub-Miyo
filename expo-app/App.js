@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 12 },
   modalText: { fontSize: 13, color: '#333', lineHeight: 20, marginBottom: 16 },
   modalCloseBtn: { backgroundColor: '#007AFF', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
-  floatingButton: { position: 'absolute', top: 12, left: 12, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 10, zIndex: 9999 },
+  floatingButton: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 12, zIndex: 99999 },
   floatingButtonText: { fontSize: 24 },
   chatModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   chatPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', flexDirection: 'column' },
@@ -314,11 +314,12 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>WebToBook</Text>
-        <Text style={styles.headerSubtitle}>Offline Novel Converter + AI Summarizer</Text>
-      </View>
-      <ScrollView style={styles.content}>
+      <View style={{ flex: 1, position: 'relative' }}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>WebToBook</Text>
+          <Text style={styles.headerSubtitle}>Offline Novel Converter + AI Summarizer</Text>
+        </View>
+        <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Step 1: Enter URL</Text>
           <TextInput
