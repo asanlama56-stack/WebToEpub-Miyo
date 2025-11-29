@@ -51,6 +51,23 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 12 },
   modalText: { fontSize: 13, color: '#333', lineHeight: 20, marginBottom: 16 },
   modalCloseBtn: { backgroundColor: '#007AFF', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
+  floatingButton: { position: 'absolute', top: 12, left: 12, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5, zIndex: 999 },
+  floatingButtonText: { fontSize: 24 },
+  chatModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  chatPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', flexDirection: 'column' },
+  chatHeader: { backgroundColor: '#10B981', padding: 16, borderTopLeftRadius: 20, borderTopRightRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  chatHeaderTitle: { fontSize: 16, fontWeight: '600', color: '#fff' },
+  chatHeaderClose: { fontSize: 24, color: '#fff' },
+  chatMessages: { flex: 1, padding: 12 },
+  chatMessage: { marginBottom: 10, maxWidth: '85%' },
+  chatMessageUser: { alignSelf: 'flex-end', backgroundColor: '#007AFF', borderRadius: 12, padding: 10 },
+  chatMessageAI: { alignSelf: 'flex-start', backgroundColor: '#f0f0f0', borderRadius: 12, padding: 10 },
+  chatMessageText: { fontSize: 13, lineHeight: 18 },
+  chatMessageUserText: { color: '#fff' },
+  chatMessageAIText: { color: '#000' },
+  chatInput: { flexDirection: 'row', padding: 12, borderTopWidth: 1, borderTopColor: '#e0e0e0', alignItems: 'flex-end' },
+  chatTextInput: { flex: 1, backgroundColor: '#f0f0f0', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8, fontSize: 13, maxHeight: 100 },
+  chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' },
 });
 
 export default function App() {
@@ -65,6 +82,10 @@ export default function App() {
   const [summaryModal, setSummaryModal] = useState(false);
   const [currentSummary, setCurrentSummary] = useState('');
   const [summarizing, setSummarizing] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
 
   const analyzeUrl = async () => {
     if (!url.trim()) {
