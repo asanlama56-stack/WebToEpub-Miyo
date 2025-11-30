@@ -19,19 +19,18 @@ const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', overflow: 'visible' },
-  header: { backgroundColor: '#007AFF', padding: 20, paddingTop: 10 },
+  container: { flex: 1, position: 'relative', backgroundColor: '#fff' },
+  screenInner: { flex: 1 },
+  header: { backgroundColor: '#007AFF', padding: 20, paddingTop: 10, height: 64, justifyContent: 'center', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
   headerSubtitle: { fontSize: 13, color: '#e0e0e0' },
-  content: { flex: 1, padding: 16, overflow: 'visible' },
+  content: { flex: 1, padding: 16, paddingBottom: 120 },
   section: { marginBottom: 20 },
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 10 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 14 },
   button: { backgroundColor: '#007AFF', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
   buttonDisabled: { backgroundColor: '#ccc' },
-  aiButton: { backgroundColor: '#10B981', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 },
   buttonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  aiButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   chapterItem: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   chapterTitle: { fontSize: 13, fontWeight: '500', color: '#000' },
   chapterUrl: { fontSize: 11, color: '#999', marginTop: 4 },
@@ -46,28 +45,21 @@ const styles = StyleSheet.create({
   shareButton: { backgroundColor: '#34C759', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   shareButtonText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   selectAllButton: { color: '#007AFF', fontSize: 12, fontWeight: '600' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 16, maxHeight: '80%', width: '100%' },
   modalTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 12 },
   modalText: { fontSize: 13, color: '#333', lineHeight: 20, marginBottom: 16 },
   modalCloseBtn: { backgroundColor: '#007AFF', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
-  floatingButton: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 12, zIndex: 99999 },
-  floatingButtonText: { fontSize: 24 },
-  chatModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  chatPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', flexDirection: 'column' },
-  chatHeader: { backgroundColor: '#10B981', padding: 16, borderTopLeftRadius: 20, borderTopRightRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  chatHeaderTitle: { fontSize: 16, fontWeight: '600', color: '#fff' },
-  chatHeaderClose: { fontSize: 24, color: '#fff' },
-  chatMessages: { flex: 1, padding: 12 },
-  chatMessage: { marginBottom: 10, maxWidth: '85%' },
-  chatMessageUser: { alignSelf: 'flex-end', backgroundColor: '#007AFF', borderRadius: 12, padding: 10 },
-  chatMessageAI: { alignSelf: 'flex-start', backgroundColor: '#f0f0f0', borderRadius: 12, padding: 10 },
-  chatMessageText: { fontSize: 13, lineHeight: 18 },
-  chatMessageUserText: { color: '#fff' },
-  chatMessageAIText: { color: '#000' },
-  chatInput: { flexDirection: 'row', padding: 12, borderTopWidth: 1, borderTopColor: '#e0e0e0', alignItems: 'flex-end' },
-  chatTextInput: { flex: 1, backgroundColor: '#f0f0f0', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginRight: 8, fontSize: 13, maxHeight: 100 },
-  chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' },
+  floatingButton: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', elevation: 12, zIndex: 9999, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.16, shadowRadius: 8 },
+  floatingButtonText: { fontSize: 24, lineHeight: 24, textAlign: 'center' },
+  chatContainer: { maxHeight: '85%', width: '100%', backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 12, paddingBottom: 20, paddingHorizontal: 12 },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 6, paddingBottom: 6 },
+  chatTitle: { fontSize: 16, fontWeight: '700' },
+  chatClose: { color: '#ef4444', fontWeight: '600' },
+  chatBody: { flex: 1, paddingHorizontal: 6, paddingVertical: 8 },
+  chatInput: { flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', paddingHorizontal: 12 },
+  chatInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, marginTop: 6 },
+  chatSendBtn: { marginLeft: 8, paddingHorizontal: 12, height: 44, borderRadius: 10, backgroundColor: '#0ea5a4', justifyContent: 'center', alignItems: 'center' },
 });
 
 export default function App() {
@@ -314,12 +306,12 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={{ flex: 1, position: 'relative' }}>
+      <View style={styles.screenInner}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>WebToBook</Text>
           <Text style={styles.headerSubtitle}>Offline Novel Converter + AI Summarizer</Text>
         </View>
-        <ScrollView style={styles.content}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Step 1: Enter URL</Text>
           <TextInput
@@ -435,11 +427,11 @@ export default function App() {
           </View>
         )}
       </ScrollView>
-
-        <TouchableOpacity style={styles.floatingButton} onPress={() => setChatOpen(true)}>
-          <Text style={styles.floatingButtonText}>🤖</Text>
-        </TouchableOpacity>
       </View>
+
+      <TouchableOpacity activeOpacity={0.85} style={styles.floatingButton} onPress={() => setChatOpen(true)} accessibilityLabel="Open AI chat">
+        <Text style={styles.floatingButtonText}>🤖</Text>
+      </TouchableOpacity>
 
       <Modal visible={summaryModal} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
@@ -455,46 +447,42 @@ export default function App() {
         </View>
       </Modal>
 
-      <Modal visible={chatOpen} transparent={true} animationType="slide">
-        <View style={styles.chatModal}>
-          <View style={styles.chatPanel}>
+      <Modal visible={chatOpen} animationType="slide" transparent={true} onRequestClose={() => setChatOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.chatContainer}>
             <View style={styles.chatHeader}>
-              <Text style={styles.chatHeaderTitle}>AI Assistant</Text>
+              <Text style={styles.chatTitle}>AI Chat</Text>
               <TouchableOpacity onPress={() => setChatOpen(false)}>
-                <Text style={styles.chatHeaderClose}>×</Text>
+                <Text style={styles.chatClose}>Close</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.chatMessages}>
+
+            <View style={styles.chatBody}>
               {chatMessages.length === 0 && (
-                <Text style={{ textAlign: 'center', color: '#999', marginTop: 20, fontSize: 13 }}>
-                  Ask me anything about the app or your books!
-                </Text>
+                <Text style={{ marginBottom: 12 }}>Ask me anything about the app or your books!</Text>
               )}
               {chatMessages.map(msg => (
-                <View key={msg.id} style={[styles.chatMessage, msg.sender === 'user' ? styles.chatMessageUser : styles.chatMessageAI]}>
-                  <Text style={[styles.chatMessageText, msg.sender === 'user' ? styles.chatMessageUserText : styles.chatMessageAIText]}>
-                    {msg.text}
+                <View key={msg.id} style={{ marginBottom: 10 }}>
+                  <Text style={{ color: msg.sender === 'user' ? '#007AFF' : '#6b7280', marginBottom: 4 }}>
+                    {msg.sender === 'user' ? 'You' : 'AI'}
                   </Text>
+                  <Text style={{ color: '#000', fontSize: 13 }}>{msg.text}</Text>
                 </View>
               ))}
-              {chatLoading && (
-                <View style={[styles.chatMessage, styles.chatMessageAI]}>
-                  <ActivityIndicator size="small" color="#10B981" />
-                </View>
-              )}
-            </ScrollView>
-            <View style={styles.chatInput}>
+              {chatLoading && <ActivityIndicator size="small" color="#10B981" />}
+            </View>
+
+            <View style={styles.chatInputRow}>
               <TextInput
-                style={styles.chatTextInput}
                 placeholder="Type a message..."
+                style={styles.chatInput}
                 value={chatInput}
                 onChangeText={setChatInput}
                 editable={!chatLoading}
-                placeholderTextColor="#999"
-                multiline
+                placeholderTextColor="#9CA3AF"
               />
               <TouchableOpacity style={styles.chatSendBtn} onPress={handleSendChat} disabled={chatLoading || !chatInput.trim()}>
-                <Text style={{ fontSize: 16, color: '#fff' }}>→</Text>
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Send</Text>
               </TouchableOpacity>
             </View>
           </View>
