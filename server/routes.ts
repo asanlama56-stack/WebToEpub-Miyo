@@ -527,7 +527,53 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
       });
 
       console.log("[CHAT] Gemini response received successfully");
-      const text = result.text || "";
+      let text = result.text || "";
+      
+      // Parse and execute actions that the AI mentions it will perform
+      const actionMatch = text.match(/\*\*Executing action:\*\*\s*`(\w+)`/);
+      if (actionMatch) {
+        const action = actionMatch[1];
+        console.log("[CHAT] Detected action from AI response:", action);
+        
+        try {
+          let actionResult: any = null;
+          
+          // Extract URL for analyze action
+          if (action === 'analyze') {
+            const urlMatch = text.match(/url:\s*["']?(https?:\/\/[^\s"'}`]+)/);
+            if (urlMatch) {
+              const url = urlMatch[1];
+              console.log("[CHAT] Auto-executing analyze for URL:", url);
+              const job = await storage.createJob(url);
+              await storage.updateJob(job.id, { status: "analyzing", progress: 20 });
+              try {
+                const { metadata, chapters } = await analyzeUrl(url);
+                actionResult = await storage.updateJob(job.id, {
+                  metadata,
+                  chapters,
+                  status: "pending",
+                  selectedChapterIds: chapters.map(ch => ch.id),
+                  progress: 100,
+                });
+                console.log("[CHAT] Analysis complete, found", chapters.length, "chapters");
+                // Append action result to response
+                text += `\n\n✅ **Analysis Complete!**\n- Found ${chapters.length} chapters\n- Title: ${metadata?.title || 'Unknown'}\n- Author: ${metadata?.author || 'Unknown'}`;
+              } catch (error) {
+                const msg = error instanceof Error ? error.message : "Analysis failed";
+                console.error("[CHAT] Analysis error:", msg);
+                text += `\n\n❌ Analysis failed: ${msg}`;
+              }
+            }
+          }
+          // More actions can be added here (download, cancel, etc.)
+          
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "Action execution failed";
+          console.error("[CHAT] Action execution error:", msg);
+          text += `\n\n⚠️ Error executing action: ${msg}`;
+        }
+      }
+      
       res.json({ reply: text });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Chat error";
