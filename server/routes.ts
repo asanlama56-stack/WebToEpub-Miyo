@@ -534,6 +534,7 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
       console.log("[CHAT] Gemini response received successfully");
       let text = result.text || "";
       let thinking = "";
+      const executionSteps: string[] = [];
       
       // Extract thinking process if present
       const thinkingMatch = text.match(/<thinking>([\s\S]*?)<\/thinking>/);
@@ -547,6 +548,7 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
       if (actionMatch) {
         const action = actionMatch[1];
         console.log("[CHAT] Detected action from AI response:", action);
+        executionSteps.push(`📋 Executing: ${action}`);
         
         try {
           let actionResult: any = null;
@@ -557,10 +559,13 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
             if (urlMatch) {
               const url = urlMatch[1];
               console.log("[CHAT] Auto-executing analyze for URL:", url);
+              executionSteps.push(`🔍 Analyzing URL: ${url.substring(0, 50)}...`);
               const job = await storage.createJob(url);
               await storage.updateJob(job.id, { status: "analyzing", progress: 20 });
               try {
+                executionSteps.push(`⏳ Parsing website content...`);
                 const { metadata, chapters } = await analyzeUrl(url);
+                executionSteps.push(`✓ Found ${chapters.length} chapters`);
                 actionResult = await storage.updateJob(job.id, {
                   metadata,
                   chapters,
@@ -568,6 +573,7 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
                   selectedChapterIds: chapters.map(ch => ch.id),
                   progress: 100,
                 });
+                executionSteps.push(`✓ Job created: ${job.id}`);
                 console.log("[CHAT] Analysis complete, found", chapters.length, "chapters");
                 // Append action result to response
                 text += `\n\n✅ **Analysis Complete!**\n- Found ${chapters.length} chapters\n- Title: ${metadata?.title || 'Unknown'}\n- Author: ${metadata?.author || 'Unknown'}`;
@@ -587,7 +593,11 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
         }
       }
       
-      res.json({ reply: text, thinking: thinking || undefined });
+      res.json({ 
+        reply: text, 
+        thinking: thinking || undefined,
+        executionSteps: executionSteps.length > 0 ? executionSteps : undefined
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Chat error";
       console.error("[CHAT] Error:", errorMessage);

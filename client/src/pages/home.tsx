@@ -35,6 +35,8 @@ export default function Home() {
   const [expandedThinking, setExpandedThinking] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [taskExecuting, setTaskExecuting] = useState(false);
+  const [executionStatus, setExecutionStatus] = useState('');
   const [aiMode, setAiMode] = useState<'fast' | 'thinking'>('fast');
   
   const { toast } = useToast();
@@ -294,6 +296,8 @@ export default function Home() {
     setChatLoading(true);
 
     try {
+      setTaskExecuting(true);
+      setExecutionStatus('Sending request to AI...');
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -309,11 +313,14 @@ export default function Home() {
       if (!response.ok) throw new Error(data.error || 'Chat error');
       const aiReply = data.reply || 'Sorry, I encountered an error.';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai', thinking: data.thinking }]);
+      setExecutionStatus('');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: `Error: ${errorMsg}`, sender: 'ai' }]);
+      setExecutionStatus('');
     } finally {
       setChatLoading(false);
+      setTaskExecuting(false);
     }
   }, [chatInput, chatMessages]);
 
@@ -569,8 +576,13 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-              {chatLoading && (
-                <div className="flex justify-start">
+              {(chatLoading || taskExecuting) && (
+                <div className="flex justify-start flex-col gap-2">
+                  {executionStatus && (
+                    <div className="text-xs text-muted-foreground italic">
+                      {executionStatus}
+                    </div>
+                  )}
                   <div className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg rounded-bl-none text-sm">
                     <span className="inline-flex gap-1">
                       <span className="w-2 h-2 bg-current rounded-full animate-bounce"></span>
