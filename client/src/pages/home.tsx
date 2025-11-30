@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Book, Download, Loader2, AlertCircle } from "lucide-react";
+import { Book, Download, Loader2, AlertCircle, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -474,31 +474,36 @@ export default function Home() {
       {/* Floating AI Chat Button */}
       <button
         onClick={() => setChatOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg flex items-center justify-center text-xl z-40 transition-colors"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/20 flex items-center justify-center z-40 transition-all duration-200 hover-elevate active-elevate-2 animate-pulse"
         aria-label="Open AI chat"
         data-testid="button-open-chat"
       >
-        🤖
+        <Sparkles className="w-6 h-6" />
       </button>
 
       {/* Chat Modal */}
       {chatOpen && (
-        <div className="fixed inset-0 bg-black/35 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-background rounded-lg sm:rounded-xl border border-border shadow-lg w-full sm:w-96 max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h3 className="font-semibold">AI Assistant</h3>
+        <div className="fixed inset-0 bg-black/35 z-50 flex items-end sm:items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-background rounded-xl border border-border shadow-2xl w-full sm:w-96 max-h-[85vh] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center justify-between p-4 border-b border-border bg-card rounded-t-xl">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <h3 className="font-semibold text-base">AI Assistant</h3>
+              </div>
               <button
                 onClick={() => setChatOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-xl"
+                className="p-1 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                 data-testid="button-close-chat"
               >
-                ×
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {chatMessages.length === 0 && (
-                <p className="text-center text-muted-foreground text-sm">
+                <p className="text-center text-muted-foreground text-sm py-4">
                   Ask me anything about your books or the app!
                 </p>
               )}
@@ -510,8 +515,8 @@ export default function Home() {
                   <div
                     className={`max-w-xs px-4 py-2 rounded-lg text-sm ${
                       msg.sender === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground'
+                        ? 'bg-primary text-primary-foreground rounded-br-none'
+                        : 'bg-secondary text-secondary-foreground rounded-bl-none'
                     }`}
                   >
                     {msg.text}
@@ -520,28 +525,33 @@ export default function Home() {
               ))}
               {chatLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg text-sm">
-                    <span className="inline-block animate-pulse">Thinking...</span>
+                  <div className="bg-secondary text-secondary-foreground px-4 py-2 rounded-lg rounded-bl-none text-sm">
+                    <span className="inline-flex gap-1">
+                      <span className="w-2 h-2 bg-current rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></span>
+                      <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                    </span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-border p-4 flex gap-2">
+            <div className="border-t border-border p-4 bg-card rounded-b-xl flex gap-2">
               <input
                 type="text"
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyPress={e => e.key === 'Enter' && handleSendChat()}
                 placeholder="Type a message..."
-                className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground"
+                className="flex-1 px-4 py-2 rounded-lg border border-input bg-background text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                 disabled={chatLoading}
                 data-testid="input-chat-message"
               />
               <Button
                 onClick={handleSendChat}
                 disabled={chatLoading || !chatInput.trim()}
-                size="sm"
+                size="default"
+                className="gap-2"
                 data-testid="button-send-chat"
               >
                 Send
