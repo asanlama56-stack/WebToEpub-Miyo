@@ -339,13 +339,17 @@ export async function registerRoutes(
 
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const { message, history } = req.body;
+      const { message, history, mode = 'fast' } = req.body;
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: "Message required" });
       }
 
-      console.log("[CHAT] Received message:", message);
+      console.log("[CHAT] Received message:", message, "Mode:", mode);
       console.log("[CHAT] History length:", history?.length || 0);
+
+      const fastModeAddition = mode === 'fast' 
+        ? "\n\n## RESPONSE STYLE (FAST MODE):\n- Give quick, direct answers\n- Be concise and to the point\n- Execute actions immediately without lengthy explanations\n- Prioritize speed and efficiency"
+        : "\n\n## RESPONSE STYLE (THINKING MODE):\n- Take time to analyze problems deeply\n- Think through potential issues step-by-step\n- If something prevents manual operation, identify root causes and propose creative solutions\n- Study the problem thoroughly and create comprehensive plans\n- For example: if images are missing in manual EPUB downloads, analyze why and suggest ways to fix it (alternative sources, AI image generation, metadata enhancement, etc.)\n- Provide detailed explanations and multiple approaches\n- Be thorough, even if it takes longer to respond";
 
       const systemPrompt = `You are an expert AI assistant for WebToBook, a professional web-to-EPUB/PDF converter application. You have complete knowledge about all features and functionality.
 
@@ -488,7 +492,7 @@ You can call these actions directly via the /api/ai-execute endpoint when the us
 - Params: {}
 - Tells user: "Cleared your completed downloads"
 
-EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze this url", "check status", etc., you should immediately execute the corresponding action!`;
+EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze this url", "check status", etc., you should immediately execute the corresponding action!` + fastModeAddition;
 
 
       // Get current jobs for AI context

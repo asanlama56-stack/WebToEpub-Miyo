@@ -34,6 +34,7 @@ export default function Home() {
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; text: string; sender: 'user' | 'ai' }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [aiMode, setAiMode] = useState<'fast' | 'thinking'>('fast');
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -297,6 +298,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: userMessage,
+          mode: aiMode,
           history: updatedMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }))
         }),
       });
@@ -497,7 +499,29 @@ export default function Home() {
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <Sparkles className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="font-semibold text-base">AI Assistant</h3>
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-semibold text-base">AI Assistant</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant={aiMode === 'fast' ? 'default' : 'outline'}
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setAiMode('fast')}
+                      data-testid="button-mode-fast"
+                    >
+                      Fast ⚡
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={aiMode === 'thinking' ? 'default' : 'outline'}
+                      className="h-6 px-2 text-xs"
+                      onClick={() => setAiMode('thinking')}
+                      data-testid="button-mode-thinking"
+                    >
+                      Thinking 🧠
+                    </Button>
+                  </div>
+                </div>
               </div>
               <button
                 onClick={() => setChatOpen(false)}
