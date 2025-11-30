@@ -436,6 +436,11 @@ export default function App() {
         )}
       </ScrollView>
 
+        <TouchableOpacity style={styles.floatingButton} onPress={() => setChatOpen(true)}>
+          <Text style={styles.floatingButtonText}>🤖</Text>
+        </TouchableOpacity>
+      </View>
+
       <Modal visible={summaryModal} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -449,10 +454,6 @@ export default function App() {
           </View>
         </View>
       </Modal>
-
-      <TouchableOpacity style={styles.floatingButton} onPress={() => setChatOpen(true)}>
-        <Text style={styles.floatingButtonText}>🤖</Text>
-      </TouchableOpacity>
 
       <Modal visible={chatOpen} transparent={true} animationType="slide">
         <View style={styles.chatModal}>
