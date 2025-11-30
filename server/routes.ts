@@ -351,6 +351,11 @@ export async function registerRoutes(
         ? "\n\n## RESPONSE STYLE (FAST MODE):\n- Give quick, direct answers\n- Be concise and to the point\n- Execute actions immediately without lengthy explanations\n- Prioritize speed and efficiency"
         : "\n\n## RESPONSE STYLE (THINKING MODE):\n- Wrap your thinking process in <thinking>...</thinking> tags so user can see your reasoning\n- Inside thinking tags, analyze problems deeply, think step-by-step, plan solutions\n- If something prevents manual operation, identify root causes and propose creative solutions\n- For example: if images are missing in EPUB downloads, analyze why and suggest fixes\n- Then provide your response outside the tags with clear, detailed guidance\n- User will expand a button to read your full thinking process";
 
+      // Add task progress info to system prompt
+      const taskProgressInfo = taskStatus && taskStatus.length > 0
+        ? `\n\n## TASK PROGRESS UPDATE:\nFrontend reports these task statuses:\n${taskStatus.map((t: any) => `- Job ${t.id}: ${t.status} (${t.progress}%)`).join('\n')}\n\nIf a task just completed, continue with the next step of the user's request!`
+        : "";
+
       const systemPrompt = `You are an expert AI assistant for WebToBook, a professional web-to-EPUB/PDF converter application. You have complete knowledge about all features and functionality.
 
 ## WHAT IS WEBTOBOOK?
@@ -500,11 +505,6 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
       const jobsSummary = jobs.length > 0 
         ? `\n\nCURRENT JOBS STATUS:\n${jobs.map(j => `- Job ${j.id}: ${j.status} (${j.progress}% complete)`).join('\n')}`
         : "\n\nNo active jobs currently.";
-      
-      // Add task progress info to system prompt
-      const taskProgressInfo = taskStatus && taskStatus.length > 0
-        ? `\n\n## TASK PROGRESS UPDATE:\nFrontend reports these task statuses:\n${taskStatus.map((t: any) => `- Job ${t.id}: ${t.status} (${t.progress}%)`).join('\n')}\n\nIf a task just completed, continue with the next step of the user's request!`
-        : "";
 
       // Build conversation history for continuity
       const contents: any[] = [
