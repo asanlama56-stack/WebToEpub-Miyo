@@ -38,6 +38,7 @@ export default function Home() {
   const [taskExecuting, setTaskExecuting] = useState(false);
   const [executionStatus, setExecutionStatus] = useState('');
   const [aiMode, setAiMode] = useState<'fast' | 'thinking'>('fast');
+  const [notifiedJobIds, setNotifiedJobIds] = useState<Set<string>>(new Set());
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -81,6 +82,48 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, [imageJobId]);
+
+  // Auto-continue AI when analysis completes
+  useEffect(() => {
+    const analyzingJobs = downloadJobs.filter(j => j.status === 'analyzing');
+    const completedJobs = downloadJobs.filter(j => 
+      j.status === 'pending' && !notifiedJobIds.has(j.id) && j.chapters.length > 0
+    );
+
+    if (completedJobs.length > 0 && chatOpen) {
+      const job = completedJobs[0];
+      console.log("[AUTO-CONTINUE] Job analysis complete, notifying AI:", job.id);
+      
+      // Auto-send message to AI to continue
+      const continueMessage = `Analysis complete! Found ${job.chapters.length} chapters. Please proceed with downloading chapters 1 through ${Math.min(50, job.chapters.length)} in EPUB format.`;
+      setChatMessages(prev => [...prev, { id: Date.now().toString(), text: continueMessage, sender: 'user' as const }]);
+      setChatInput('');
+      setNotifiedJobIds(prev => new Set([...prev, job.id]));
+      
+      // Automatically send to AI
+      setTimeout(() => {
+        setChatLoading(true);
+        fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: continueMessage,
+            mode: aiMode,
+            taskStatus: downloadJobs.map(j => ({ id: j.id, status: j.status, progress: j.progress })),
+            history: [...chatMessages, { role: 'user', content: continueMessage }].map(m => 
+              m.role ? { role: m.role, content: m.content } : { role: (m as any).sender === 'user' ? 'user' : 'assistant', content: (m as any).text }
+            )
+          }),
+        }).then(r => r.json()).then(data => {
+          const aiReply = data.reply || 'Processing your request...';
+          setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai', thinking: data.thinking }]);
+        }).catch(err => {
+          console.error("[AUTO-CONTINUE] Error:", err);
+          setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: 'Error: Could not continue processing', sender: 'ai' }]);
+        }).finally(() => setChatLoading(false));
+      }, 500);
+    }
+  }, [downloadJobs, chatOpen, aiMode, notifiedJobIds, chatMessages]);
 
   const analyzeMutation = useMutation({
     mutationFn: async (url: string) => {
@@ -322,7 +365,7 @@ export default function Home() {
       setChatLoading(false);
       setTaskExecuting(false);
     }
-  }, [chatInput, chatMessages]);
+  }, [chatInput, chatMessages, downloadJobs, aiMode]);
 
   return (
     <div className="min-h-screen bg-background">
