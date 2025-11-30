@@ -347,6 +347,40 @@ export async function registerRoutes(
       console.log("[CHAT] Received message:", message, "Mode:", mode);
       console.log("[CHAT] History length:", history?.length || 0);
 
+      // Auto-detect URLs and trigger analysis BEFORE sending to AI
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const urlMatches = message.match(urlRegex);
+      let autoCreatedJobId = null;
+      
+      if (urlMatches && (message.toLowerCase().includes('download') || message.toLowerCase().includes('analyze'))) {
+        // Create analysis job for the first URL found
+        const url = urlMatches[0];
+        try {
+          const autoJob = await storage.createJob(url);
+          await storage.updateJob(autoJob.id, { status: "analyzing", progress: 10 });
+          autoCreatedJobId = autoJob.id;
+          console.log("[CHAT] Auto-created job for URL:", url, "JobID:", autoJob.id);
+          // Start analysis in background
+          analyzeUrl(url).then(
+            async ({ metadata, chapters }) => {
+              await storage.updateJob(autoJob.id, {
+                metadata,
+                chapters,
+                status: "pending",
+                selectedChapterIds: chapters.map(ch => ch.id),
+                progress: 100,
+              });
+              console.log("[CHAT] Auto-analysis complete");
+            }
+          ).catch(err => {
+            console.error("[CHAT] Auto-analysis error:", err);
+            storage.updateJob(autoJob.id, { status: "error", error: String(err) });
+          });
+        } catch (err) {
+          console.error("[CHAT] Failed to create auto-job:", err);
+        }
+      }
+
       const fastModeAddition = mode === 'fast' 
         ? "\n\n## RESPONSE STYLE (FAST MODE):\n- Give quick, direct answers\n- Be concise and to the point\n- Execute actions immediately without lengthy explanations\n- Prioritize speed and efficiency"
         : "\n\n## RESPONSE STYLE (THINKING MODE):\n- Wrap your thinking process in <thinking>...</thinking> tags so user can see your reasoning\n- Inside thinking tags, analyze problems deeply, think step-by-step, plan solutions\n- If something prevents manual operation, identify root causes and propose creative solutions\n- For example: if images are missing in EPUB downloads, analyze why and suggest fixes\n- Then provide your response outside the tags with clear, detailed guidance\n- User will expand a button to read your full thinking process";
