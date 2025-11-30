@@ -471,11 +471,12 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Floating AI Chat Button */}
+      {/* Floating AI Chat Button - Always fixed to bottom-left of viewport */}
       {!chatOpen && (
         <button
           onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 left-6 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/20 flex items-center justify-center z-40 transition-all duration-200 hover-elevate active-elevate-2"
+          className="fixed bottom-8 left-8 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl flex items-center justify-center z-50 transition-all duration-200 hover-elevate active-elevate-2"
+          style={{ position: 'fixed', bottom: '2rem', left: '2rem', zIndex: 50 }}
           aria-label="Open AI chat"
           data-testid="button-open-chat"
         >
