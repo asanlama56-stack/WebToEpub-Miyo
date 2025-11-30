@@ -472,14 +472,16 @@ export default function Home() {
       </footer>
 
       {/* Floating AI Chat Button */}
-      <button
-        onClick={() => setChatOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/20 flex items-center justify-center z-40 transition-all duration-200 hover-elevate active-elevate-2 animate-pulse"
-        aria-label="Open AI chat"
-        data-testid="button-open-chat"
-      >
-        <Sparkles className="w-6 h-6" />
-      </button>
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl shadow-primary/20 flex items-center justify-center z-40 transition-all duration-200 hover-elevate active-elevate-2"
+          aria-label="Open AI chat"
+          data-testid="button-open-chat"
+        >
+          <Sparkles className="w-6 h-6" />
+        </button>
+      )}
 
       {/* Chat Modal */}
       {chatOpen && (
