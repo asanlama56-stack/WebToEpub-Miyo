@@ -346,9 +346,25 @@ export async function registerRoutes(
 
       console.log("[CHAT] Received message:", message);
 
+      const systemPrompt = `You are a helpful AI assistant for WebToBook, a web-to-EPUB/PDF converter application. This app allows users to:
+- Paste URLs from web novels, books, and online articles
+- Automatically detect and extract chapters
+- Download multiple chapters in parallel for speed
+- Convert content to EPUB, PDF, or HTML formats
+- Preview and edit book metadata (title, author, cover image)
+- Configure download settings (concurrent downloads, request delays, retry attempts)
+- Include or exclude images in downloads
+- Track download progress in real-time
+
+Be helpful, knowledgeable about the app's features, and guide users on how to use it effectively. Answer questions about book downloading, format conversion, and the app's capabilities.`;
+
       const result = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: message,
+        contents: [
+          { role: "user", parts: [{ text: systemPrompt }] },
+          { role: "model", parts: [{ text: "I understand. I'm the assistant for WebToBook, a powerful web-to-EPUB/PDF converter. I can help users extract chapters from web novels and online articles, convert them to portable formats, and manage their downloads. How can I assist?" }] },
+          { role: "user", parts: [{ text: message }] },
+        ],
       });
 
       console.log("[CHAT] Gemini response received successfully");
