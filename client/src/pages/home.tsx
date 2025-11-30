@@ -98,7 +98,11 @@ export default function Home() {
       const continueMessage = `Analysis complete! Found ${job.chapters.length} chapters. Please proceed with downloading chapters 1 through ${Math.min(50, job.chapters.length)} in EPUB format.`;
       setChatMessages(prev => [...prev, { id: Date.now().toString(), text: continueMessage, sender: 'user' as const }]);
       setChatInput('');
-      setNotifiedJobIds(prev => new Set([...prev, job.id]));
+      setNotifiedJobIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(job.id);
+        return newSet;
+      });
       
       // Automatically send to AI
       setTimeout(() => {
@@ -110,9 +114,7 @@ export default function Home() {
             message: continueMessage,
             mode: aiMode,
             taskStatus: downloadJobs.map(j => ({ id: j.id, status: j.status, progress: j.progress })),
-            history: [...chatMessages, { role: 'user', content: continueMessage }].map(m => 
-              m.role ? { role: m.role, content: m.content } : { role: (m as any).sender === 'user' ? 'user' : 'assistant', content: (m as any).text }
-            )
+            history: [...chatMessages.map(m => ({ role: (m as any).sender === 'user' ? 'user' : 'assistant', content: m.text })), { role: 'user', content: continueMessage }]
           }),
         }).then(r => r.json()).then(data => {
           const aiReply = data.reply || 'Processing your request...';
@@ -172,20 +174,12 @@ export default function Home() {
 
   const [analysisProgress, setAnalysisProgress] = useState(0);
 
-  const { data: analysisJob } = useQuery<DownloadJob | null>({
-    queryKey: ["/api/jobs"],
-    refetchInterval: 500,
-    select: (jobs: DownloadJob[]) => {
-      return (jobs || []).find((j: DownloadJob) => j.status === "analyzing") || null;
-    },
-    enabled: analyzeMutation.isPending,
-  });
-
   useEffect(() => {
-    if (analysisJob) {
-      setAnalysisProgress(analysisJob.progress);
+    const analyzingJob = downloadJobs.find((j) => j.status === "analyzing");
+    if (analyzingJob) {
+      setAnalysisProgress(analyzingJob.progress);
     }
-  }, [analysisJob?.progress]);
+  }, [downloadJobs]);
 
   const downloadMutation = useMutation({
     mutationFn: async (params: {
@@ -341,6 +335,10 @@ export default function Home() {
     try {
       setTaskExecuting(true);
       setExecutionStatus('Sending request to AI...');
+      
+      // Force immediate refetch of jobs to show analyzing indicator
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -357,6 +355,9 @@ export default function Home() {
       const aiReply = data.reply || 'Sorry, I encountered an error.';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai', thinking: data.thinking }]);
       setExecutionStatus('');
+      
+      // Refetch jobs again after AI response to show updated status
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: `Error: ${errorMsg}`, sender: 'ai' }]);
@@ -365,7 +366,7 @@ export default function Home() {
       setChatLoading(false);
       setTaskExecuting(false);
     }
-  }, [chatInput, chatMessages, downloadJobs, aiMode]);
+  }, [chatInput, chatMessages, downloadJobs, aiMode, queryClient]);
 
   return (
     <div className="min-h-screen bg-background">
