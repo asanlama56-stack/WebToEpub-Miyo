@@ -297,12 +297,13 @@ export default function Home() {
         body: JSON.stringify({ message: userMessage }),
       });
 
-      if (!response.ok) throw new Error('Chat error');
       const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Chat error');
       const aiReply = data.reply || 'Sorry, I encountered an error.';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai' }]);
     } catch (error) {
-      setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: 'Sorry, I encountered an error. Please try again.', sender: 'ai' }]);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: `Error: ${errorMsg}`, sender: 'ai' }]);
     } finally {
       setChatLoading(false);
     }
