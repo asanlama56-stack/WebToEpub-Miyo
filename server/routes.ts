@@ -11,6 +11,9 @@ import { fromZodError } from "zod-validation-error";
 import { getImageCache } from "./pipeline/imagePipeline";
 import { createImageJob, getImageJob } from "./jobs/imageJobs";
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+
 const activeDownloads = new Map<string, { abort: boolean }>();
 const generatedFiles = new Map<string, { buffer: Buffer; filename: string; mimeType: string }>();
 
@@ -330,6 +333,35 @@ export async function registerRoutes(
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(entry.buffer);
+  });
+
+  app.post("/api/chat", async (req: Request, res: Response) => {
+    try {
+      const { message } = req.body;
+      if (!message || typeof message !== 'string') {
+        return res.status(400).json({ error: "Message required" });
+      }
+
+      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: message }] }],
+          generationConfig: { maxOutputTokens: 300 },
+        }),
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: "Gemini API error" });
+      }
+
+      const data = await response.json();
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from AI";
+      res.json({ reply });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Chat error";
+      res.status(500).json({ error: message });
+    }
   });
 
   app.get("/api/health", (_req: Request, res: Response) => {

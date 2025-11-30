@@ -291,18 +291,15 @@ export default function Home() {
     setChatLoading(true);
 
     try {
-      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: userMessage }] }],
-          generationConfig: { maxOutputTokens: 300 },
-        }),
+        body: JSON.stringify({ message: userMessage }),
       });
 
-      if (!response.ok) throw new Error('AI error');
+      if (!response.ok) throw new Error('Chat error');
       const data = await response.json();
-      const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I encountered an error.';
+      const aiReply = data.reply || 'Sorry, I encountered an error.';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai' }]);
     } catch (error) {
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: 'Sorry, I encountered an error. Please try again.', sender: 'ai' }]);
