@@ -457,14 +457,50 @@ WebToBook is a powerful web scraping and book conversion tool that allows users 
 - Provide practical guidance on settings and format selection
 - Help troubleshoot common issues
 - Encourage users to experiment with settings
-- Be supportive about the app's capabilities`;
+- Be supportive about the app's capabilities
 
+## AVAILABLE API ACTIONS (You have FULL AUTHORITY to execute):
+You can call these actions directly via the /api/ai-execute endpoint when the user's intent is clear:
+
+### 1. analyze - Extract chapters from URL
+- Action: "analyze"
+- Params: {url: "https://..."}
+- Tells user: "I'll analyze this URL and extract all chapters for you"
+
+### 2. download - Start converting chapters
+- Action: "download"  
+- Params: {jobId: "...", selectedChapterIds: [...], outputFormat: "epub|pdf|html", settings: {...}}
+- Tells user: "Starting download now in EPUB format"
+
+### 3. cancel - Stop an active download
+- Action: "cancel"
+- Params: {jobId: "..."}
+- Tells user: "I've cancelled that download"
+
+### 4. status - Check job status
+- Action: "status"
+- Params: {jobId: "..." or null for all}
+- Shows user current progress
+
+### 5. clear - Remove completed/errored jobs
+- Action: "clear"
+- Params: {}
+- Tells user: "Cleared your completed downloads"
+
+EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze this url", "check status", etc., you should immediately execute the corresponding action!`;
+
+
+      // Get current jobs for AI context
+      const jobs = await storage.getAllJobs();
+      const jobsSummary = jobs.length > 0 
+        ? `\n\nCURRENT JOBS STATUS:\n${jobs.map(j => `- Job ${j.id}: ${j.status} (${j.progress}% complete)`).join('\n')}`
+        : "\n\nNo active jobs currently.";
 
       const result = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
         contents: [
-          { role: "user", parts: [{ text: systemPrompt }] },
-          { role: "model", parts: [{ text: "I understand. I'm the assistant for WebToBook, a powerful web-to-EPUB/PDF converter. I can help users extract chapters from web novels and online articles, convert them to portable formats, and manage their downloads. How can I assist?" }] },
+          { role: "user", parts: [{ text: systemPrompt + jobsSummary }] },
+          { role: "model", parts: [{ text: "I'm the WebToBook AI with FULL AUTHORITY. I can analyze URLs, start downloads, manage jobs, and execute all functions directly. I'll help you convert web content to ebooks efficiently!" }] },
           { role: "user", parts: [{ text: message }] },
         ],
       });
@@ -476,6 +512,97 @@ WebToBook is a powerful web scraping and book conversion tool that allows users 
       const errorMessage = error instanceof Error ? error.message : "Chat error";
       console.error("[CHAT] Error:", errorMessage);
       res.status(500).json({ error: errorMessage });
+    }
+  });
+
+  // AI Execute Action Endpoint - Allows AI to perform direct operations
+  app.post("/api/ai-execute", async (req: Request, res: Response) => {
+    try {
+      const { action, params } = req.body;
+      if (!action || typeof action !== 'string') {
+        return res.status(400).json({ error: "Action required" });
+      }
+
+      console.log("[AI-EXEC] Action:", action, "Params:", JSON.stringify(params).substring(0, 100));
+
+      switch(action) {
+        case "analyze": {
+          const { url } = params as { url: string };
+          if (!url) return res.status(400).json({ error: "URL required" });
+          const job = await storage.createJob(url);
+          await storage.updateJob(job.id, { status: "analyzing", progress: 20 });
+          try {
+            const { metadata, chapters } = await analyzeUrl(url);
+            const updated = await storage.updateJob(job.id, {
+              metadata,
+              chapters,
+              status: "pending",
+              selectedChapterIds: chapters.map(ch => ch.id),
+              progress: 100,
+            });
+            return res.json({ success: true, job: updated });
+          } catch (error) {
+            await storage.updateJob(job.id, { status: "error", error: "Analysis failed", progress: 0 });
+            throw error;
+          }
+        }
+
+        case "download": {
+          const { jobId, selectedChapterIds, outputFormat, settings } = params as any;
+          if (!jobId || !selectedChapterIds || !outputFormat) {
+            return res.status(400).json({ error: "Missing required params: jobId, selectedChapterIds, outputFormat" });
+          }
+          const job = await storage.getJob(jobId);
+          if (!job) return res.status(404).json({ error: "Job not found" });
+          
+          const downloadSettings = { ...defaultSettings, ...settings };
+          await storage.updateJob(jobId, {
+            selectedChapterIds,
+            outputFormat,
+            status: "downloading",
+            progress: 0,
+          });
+          
+          return res.json({ success: true, message: "Download started", jobId });
+        }
+
+        case "cancel": {
+          const { jobId } = params as { jobId: string };
+          if (!jobId) return res.status(400).json({ error: "Job ID required" });
+          const job = await storage.getJob(jobId);
+          if (!job) return res.status(404).json({ error: "Job not found" });
+          await storage.updateJob(jobId, { status: "error", error: "Cancelled by AI" });
+          return res.json({ success: true, message: "Download cancelled", jobId });
+        }
+
+        case "status": {
+          const { jobId } = params as { jobId?: string };
+          if (jobId) {
+            const job = await storage.getJob(jobId);
+            if (!job) return res.status(404).json({ error: "Job not found" });
+            return res.json({ success: true, job });
+          } else {
+            const jobs = await storage.getAllJobs();
+            return res.json({ success: true, jobs });
+          }
+        }
+
+        case "clear": {
+          const jobs = await storage.getAllJobs();
+          const completed = jobs.filter(j => j.status === "complete" || j.status === "error");
+          for (const job of completed) {
+            await storage.deleteJob(job.id);
+          }
+          return res.json({ success: true, cleared: completed.length });
+        }
+
+        default:
+          return res.status(400).json({ error: `Unknown action: ${action}` });
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Execution failed";
+      console.error("[AI-EXEC] Error:", msg);
+      res.status(500).json({ error: msg });
     }
   });
 
