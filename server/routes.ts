@@ -339,7 +339,7 @@ export async function registerRoutes(
 
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const { message, history, mode = 'fast' } = req.body;
+      const { message, history, mode = 'fast', taskStatus = [] } = req.body;
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: "Message required" });
       }
@@ -349,7 +349,7 @@ export async function registerRoutes(
 
       const fastModeAddition = mode === 'fast' 
         ? "\n\n## RESPONSE STYLE (FAST MODE):\n- Give quick, direct answers\n- Be concise and to the point\n- Execute actions immediately without lengthy explanations\n- Prioritize speed and efficiency"
-        : "\n\n## RESPONSE STYLE (THINKING MODE):\n- Take time to analyze problems deeply\n- Think through potential issues step-by-step\n- If something prevents manual operation, identify root causes and propose creative solutions\n- Study the problem thoroughly and create comprehensive plans\n- For example: if images are missing in manual EPUB downloads, analyze why and suggest ways to fix it (alternative sources, AI image generation, metadata enhancement, etc.)\n- Provide detailed explanations and multiple approaches\n- Be thorough, even if it takes longer to respond";
+        : "\n\n## RESPONSE STYLE (THINKING MODE):\n- Wrap your thinking process in <thinking>...</thinking> tags so user can see your reasoning\n- Inside thinking tags, analyze problems deeply, think step-by-step, plan solutions\n- If something prevents manual operation, identify root causes and propose creative solutions\n- For example: if images are missing in EPUB downloads, analyze why and suggest fixes\n- Then provide your response outside the tags with clear, detailed guidance\n- User will expand a button to read your full thinking process";
 
       const systemPrompt = `You are an expert AI assistant for WebToBook, a professional web-to-EPUB/PDF converter application. You have complete knowledge about all features and functionality.
 
@@ -492,7 +492,7 @@ You can call these actions directly via the /api/ai-execute endpoint when the us
 - Params: {}
 - Tells user: "Cleared your completed downloads"
 
-EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze this url", "check status", etc., you should immediately execute the corresponding action!` + fastModeAddition;
+EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze this url", "check status", etc., you should immediately execute the corresponding action!` + fastModeAddition + taskProgressInfo;
 
 
       // Get current jobs for AI context
@@ -500,6 +500,11 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
       const jobsSummary = jobs.length > 0 
         ? `\n\nCURRENT JOBS STATUS:\n${jobs.map(j => `- Job ${j.id}: ${j.status} (${j.progress}% complete)`).join('\n')}`
         : "\n\nNo active jobs currently.";
+      
+      // Add task progress info to system prompt
+      const taskProgressInfo = taskStatus && taskStatus.length > 0
+        ? `\n\n## TASK PROGRESS UPDATE:\nFrontend reports these task statuses:\n${taskStatus.map((t: any) => `- Job ${t.id}: ${t.status} (${t.progress}%)`).join('\n')}\n\nIf a task just completed, continue with the next step of the user's request!`
+        : "";
 
       // Build conversation history for continuity
       const contents: any[] = [
@@ -528,6 +533,14 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
 
       console.log("[CHAT] Gemini response received successfully");
       let text = result.text || "";
+      let thinking = "";
+      
+      // Extract thinking process if present
+      const thinkingMatch = text.match(/<thinking>([\s\S]*?)<\/thinking>/);
+      if (thinkingMatch) {
+        thinking = thinkingMatch[1].trim();
+        text = text.replace(/<thinking>[\s\S]*?<\/thinking>\n*/g, '').trim();
+      }
       
       // Parse and execute actions that the AI mentions it will perform
       const actionMatch = text.match(/\*\*Executing action:\*\*\s*`(\w+)`/);
@@ -574,7 +587,7 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
         }
       }
       
-      res.json({ reply: text });
+      res.json({ reply: text, thinking: thinking || undefined });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Chat error";
       console.error("[CHAT] Error:", errorMessage);

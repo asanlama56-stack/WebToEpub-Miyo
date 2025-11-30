@@ -31,7 +31,8 @@ export default function Home() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageJobId, setImageJobId] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ id: string; text: string; sender: 'user' | 'ai' }>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; text: string; sender: 'user' | 'ai'; thinking?: string }>>([]);
+  const [expandedThinking, setExpandedThinking] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [aiMode, setAiMode] = useState<'fast' | 'thinking'>('fast');
@@ -299,6 +300,7 @@ export default function Home() {
         body: JSON.stringify({ 
           message: userMessage,
           mode: aiMode,
+          taskStatus: downloadJobs.map(j => ({ id: j.id, status: j.status, progress: j.progress })),
           history: updatedMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }))
         }),
       });
@@ -306,7 +308,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Chat error');
       const aiReply = data.reply || 'Sorry, I encountered an error.';
-      setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai' }]);
+      setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: aiReply, sender: 'ai', thinking: data.thinking }]);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       setChatMessages(prev => [...prev, { id: (Date.now() + 1).toString(), text: `Error: ${errorMsg}`, sender: 'ai' }]);
@@ -539,10 +541,23 @@ export default function Home() {
                 </p>
               )}
               {chatMessages.map(msg => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+                <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} flex-col`}>
+                  {msg.thinking && (
+                    <div className="mb-2 max-w-xs">
+                      <button
+                        onClick={() => setExpandedThinking(expandedThinking === msg.id ? null : msg.id)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                        data-testid="button-toggle-thinking"
+                      >
+                        {expandedThinking === msg.id ? '▼' : '▶'} 💭 AI Thinking Process
+                      </button>
+                      {expandedThinking === msg.id && (
+                        <div className="mt-1 p-2 rounded bg-muted/50 text-xs text-muted-foreground border border-border/50 max-h-40 overflow-y-auto">
+                          {msg.thinking}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div
                     className={`max-w-xs px-4 py-2 rounded-lg text-sm ${
                       msg.sender === 'user'
