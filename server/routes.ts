@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import rateLimit from "express-rate-limit";
+import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
 import { analyzeUrl, downloadChaptersParallel } from "./scraper";
 import { generateOutput } from "./generator";
@@ -12,7 +13,8 @@ import { getImageCache } from "./pipeline/imagePipeline";
 import { createImageJob, getImageJob } from "./jobs/imageJobs";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent";
+const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+const geminiModel = genAI.models.generateContent;
 
 const activeDownloads = new Map<string, { abort: boolean }>();
 const generatedFiles = new Map<string, { buffer: Buffer; filename: string; mimeType: string }>();
@@ -344,32 +346,18 @@ export async function registerRoutes(
 
       console.log("[CHAT] Received message:", message);
 
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: message }] }],
-          generationConfig: { maxOutputTokens: 300 },
-        }),
+      const result = await genAI.models.generateContent({
+        model: "gemini-1.5-flash-latest",
+        contents: message,
       });
 
-      console.log("[CHAT] Gemini response status:", response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[CHAT] Gemini error:", errorText);
-        return res.status(response.status).json({ error: "Gemini API error", details: errorText });
-      }
-
-      const data = await response.json();
-      console.log("[CHAT] Gemini data:", JSON.stringify(data).substring(0, 200));
-      
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from AI";
-      res.json({ reply });
+      console.log("[CHAT] Gemini response received successfully");
+      const text = result.text || "";
+      res.json({ reply: text });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Chat error";
-      console.error("[CHAT] Error:", message);
-      res.status(500).json({ error: message });
+      const errorMessage = error instanceof Error ? error.message : "Chat error";
+      console.error("[CHAT] Error:", errorMessage);
+      res.status(500).json({ error: errorMessage });
     }
   });
 
