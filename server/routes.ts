@@ -347,7 +347,7 @@ export async function registerRoutes(
       console.log("[CHAT] Received message:", message);
 
       const result = await genAI.models.generateContent({
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-2.5-flash",
         contents: message,
       });
 
