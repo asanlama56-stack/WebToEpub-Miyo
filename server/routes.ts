@@ -342,6 +342,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Message required" });
       }
 
+      console.log("[CHAT] Received message:", message);
+
       const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -351,15 +353,22 @@ export async function registerRoutes(
         }),
       });
 
+      console.log("[CHAT] Gemini response status:", response.status);
+
       if (!response.ok) {
-        return res.status(response.status).json({ error: "Gemini API error" });
+        const errorText = await response.text();
+        console.error("[CHAT] Gemini error:", errorText);
+        return res.status(response.status).json({ error: "Gemini API error", details: errorText });
       }
 
       const data = await response.json();
+      console.log("[CHAT] Gemini data:", JSON.stringify(data).substring(0, 200));
+      
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from AI";
       res.json({ reply });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Chat error";
+      console.error("[CHAT] Error:", message);
       res.status(500).json({ error: message });
     }
   });
