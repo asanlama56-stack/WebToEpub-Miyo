@@ -339,6 +339,21 @@ export default function Home() {
               </p>
             </div>
           </div>
+          
+          {/* Background Task Indicator */}
+          {downloadJobs.filter(j => ['analyzing', 'downloading', 'processing'].includes(j.status)).length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></span>
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></span>
+              </div>
+              <span className="text-xs font-medium text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                {downloadJobs.filter(j => ['analyzing', 'downloading', 'processing'].includes(j.status)).length} running
+              </span>
+            </div>
+          )}
+          
           <ThemeToggle />
         </div>
       </header>
