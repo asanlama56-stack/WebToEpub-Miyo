@@ -339,12 +339,13 @@ export async function registerRoutes(
 
   app.post("/api/chat", async (req: Request, res: Response) => {
     try {
-      const { message } = req.body;
+      const { message, history } = req.body;
       if (!message || typeof message !== 'string') {
         return res.status(400).json({ error: "Message required" });
       }
 
       console.log("[CHAT] Received message:", message);
+      console.log("[CHAT] History length:", history?.length || 0);
 
       const systemPrompt = `You are an expert AI assistant for WebToBook, a professional web-to-EPUB/PDF converter application. You have complete knowledge about all features and functionality.
 
@@ -496,13 +497,29 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
         ? `\n\nCURRENT JOBS STATUS:\n${jobs.map(j => `- Job ${j.id}: ${j.status} (${j.progress}% complete)`).join('\n')}`
         : "\n\nNo active jobs currently.";
 
+      // Build conversation history for continuity
+      const contents: any[] = [
+        { role: "user", parts: [{ text: systemPrompt + jobsSummary }] },
+        { role: "model", parts: [{ text: "I'm the WebToBook AI with FULL AUTHORITY. I can analyze URLs, start downloads, manage jobs, and execute all functions directly. I'll help you convert web content to ebooks efficiently!" }] },
+      ];
+
+      // Add previous messages if history exists
+      if (history && Array.isArray(history) && history.length > 0) {
+        for (const msg of history) {
+          if (msg.role === 'user') {
+            contents.push({ role: "user", parts: [{ text: msg.content }] });
+          } else if (msg.role === 'assistant') {
+            contents.push({ role: "model", parts: [{ text: msg.content }] });
+          }
+        }
+      } else {
+        // If no history, just add current message
+        contents.push({ role: "user", parts: [{ text: message }] });
+      }
+
       const result = await genAI.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: [
-          { role: "user", parts: [{ text: systemPrompt + jobsSummary }] },
-          { role: "model", parts: [{ text: "I'm the WebToBook AI with FULL AUTHORITY. I can analyze URLs, start downloads, manage jobs, and execute all functions directly. I'll help you convert web content to ebooks efficiently!" }] },
-          { role: "user", parts: [{ text: message }] },
-        ],
+        contents,
       });
 
       console.log("[CHAT] Gemini response received successfully");

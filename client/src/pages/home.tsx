@@ -286,15 +286,19 @@ export default function Home() {
     if (!chatInput.trim()) return;
 
     const userMessage = chatInput;
+    const updatedMessages = [...chatMessages, { id: Date.now().toString(), text: userMessage, sender: 'user' as const }];
     setChatInput('');
-    setChatMessages(prev => [...prev, { id: Date.now().toString(), text: userMessage, sender: 'user' }]);
+    setChatMessages(updatedMessages);
     setChatLoading(true);
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ 
+          message: userMessage,
+          history: updatedMessages.map(m => ({ role: m.sender === 'user' ? 'user' : 'assistant', content: m.text }))
+        }),
       });
 
       const data = await response.json();
@@ -307,7 +311,7 @@ export default function Home() {
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput]);
+  }, [chatInput, chatMessages]);
 
   return (
     <div className="min-h-screen bg-background">
