@@ -7,18 +7,12 @@
       "channel": "production",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "npm_config_legacy_peer_deps": "true"
       }
     },
     "preview": {
       "channel": "preview",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "npm_config_legacy_peer_deps": "true"
       }
     },
     "development": {
@@ -26,9 +20,6 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "env": {
-        "npm_config_legacy_peer_deps": "true"
       }
     }
   },
