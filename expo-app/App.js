@@ -17,6 +17,7 @@ import * as Sharing from 'expo-sharing';
 
 const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const BACKEND_URL = 'http://localhost:5000';
 
 const styles = StyleSheet.create({
   container: { flex: 1, position: 'relative', backgroundColor: '#fff' },
@@ -31,6 +32,11 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#007AFF', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
   buttonDisabled: { backgroundColor: '#ccc' },
   buttonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  formatButtonsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12, gap: 8 },
+  formatButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 2, borderColor: '#ddd', alignItems: 'center', backgroundColor: '#f9f9f9' },
+  formatButtonActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
+  formatButtonText: { fontSize: 12, fontWeight: '600', color: '#666' },
+  formatButtonTextActive: { color: '#fff' },
   chapterItem: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   chapterTitle: { fontSize: 13, fontWeight: '500', color: '#000' },
   chapterUrl: { fontSize: 11, color: '#999', marginTop: 4 },
@@ -78,6 +84,8 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [outputFormat, setOutputFormat] = useState('txt');
+  const [currentJobId, setCurrentJobId] = useState(null);
 
   const analyzeUrl = async () => {
     if (!url.trim()) {
@@ -236,30 +244,88 @@ export default function App() {
     return data.candidates[0].content.parts[0].text;
   };
 
-  const generateTxt = async () => {
+  const generateFile = async () => {
     if (selectedChapters.size === 0) {
       Alert.alert('Error', 'Please select at least one chapter');
       return;
     }
+
     setGenerating(true);
     setProgress(0);
     try {
-      const selectedChaptersList = chapters.filter(ch => selectedChapters.has(ch.id));
-      let content = `${bookTitle}\n${'='.repeat(bookTitle.length)}\n\n`;
+      const selectedChapterIds = chapters.filter(ch => selectedChapters.has(ch.id)).map(ch => ch.id.toString());
       
-      for (let i = 0; i < selectedChaptersList.length; i++) {
-        const chapter = selectedChaptersList[i];
-        const chapterContent = await fetchChapterContent(chapter.url);
-        content += `\n\n${chapter.title}\n${'-'.repeat(chapter.title.length)}\n\n${chapterContent}`;
-        setProgress(Math.round(((i + 1) / selectedChaptersList.length) * 100));
+      // Create job via backend API
+      const analyzeRes = await fetch(`${BACKEND_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!analyzeRes.ok) {
+        throw new Error('Failed to create analysis job');
       }
 
-      const fileName = `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
-      const filePath = FileSystem.DocumentDirectory + fileName;
-      await FileSystem.writeAsStringAsync(filePath, content);
-      setDownloadedFiles([...downloadedFiles, { name: fileName, path: filePath }]);
-      Alert.alert('Success', 'Text file generated!');
-      setProgress(0);
+      const { job } = await analyzeRes.json();
+      setCurrentJobId(job.id);
+
+      // Start download with selected format
+      const downloadRes = await fetch(`${BACKEND_URL}/api/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: job.id,
+          selectedChapterIds,
+          outputFormat,
+          settings: { concurrentDownloads: 3, delayBetweenRequests: 500 },
+        }),
+      });
+
+      if (!downloadRes.ok) {
+        throw new Error('Failed to start download');
+      }
+
+      // Poll for completion
+      let completed = false;
+      let attempts = 0;
+      const maxAttempts = 300; // 5 minutes with 1s polling
+
+      while (!completed && attempts < maxAttempts) {
+        const statusRes = await fetch(`${BACKEND_URL}/api/jobs/${job.id}`);
+        if (!statusRes.ok) throw new Error('Failed to get job status');
+
+        const jobData = await statusRes.json();
+        setProgress(jobData.progress || 0);
+
+        if (jobData.status === 'completed') {
+          completed = true;
+          // Download the file
+          const fileRes = await fetch(`${BACKEND_URL}/api/download-file/${job.id}`);
+          if (!fileRes.ok) throw new Error('Failed to download file');
+
+          const fileBlob = await fileRes.blob();
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+            const fileName = `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}.${outputFormat}`;
+            const filePath = FileSystem.DocumentDirectory + fileName;
+            await FileSystem.writeAsStringAsync(filePath, base64, { encoding: FileSystem.EncodingType.Base64 });
+            setDownloadedFiles([...downloadedFiles, { name: fileName, path: filePath }]);
+            Alert.alert('Success', `${outputFormat.toUpperCase()} file generated!`);
+            setProgress(0);
+          };
+          reader.readAsDataURL(fileBlob);
+        } else if (jobData.status === 'error') {
+          throw new Error(jobData.error || 'Download failed');
+        }
+
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      if (!completed) {
+        throw new Error('Download timed out');
+      }
     } catch (error) {
       Alert.alert('Error', 'Failed: ' + error.message);
     } finally {
@@ -309,7 +375,7 @@ export default function App() {
       <View style={styles.screenInner}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>WebToBook</Text>
-          <Text style={styles.headerSubtitle}>Offline Novel Converter + AI Summarizer</Text>
+          <Text style={styles.headerSubtitle}>Novel Converter + AI</Text>
         </View>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
@@ -371,7 +437,7 @@ export default function App() {
                     {summarizing ? (
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
-                      <Text style={styles.summarizeBtnText}>🤖 AI Summary</Text>
+                      <Text style={styles.summarizeBtnText}>Summarize</Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -382,16 +448,30 @@ export default function App() {
 
         {chapters.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Step 3: Generate</Text>
+            <Text style={styles.sectionTitle}>Step 3: Choose Format</Text>
+            <View style={styles.formatButtonsContainer}>
+              {['txt', 'epub', 'pdf'].map(format => (
+                <TouchableOpacity
+                  key={format}
+                  style={[styles.formatButton, outputFormat === format && styles.formatButtonActive]}
+                  onPress={() => setOutputFormat(format)}
+                  disabled={generating}
+                >
+                  <Text style={[styles.formatButtonText, outputFormat === format && styles.formatButtonTextActive]}>
+                    {format.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <TouchableOpacity
               style={[styles.button, (generating || selectedChapters.size === 0) && styles.buttonDisabled]}
-              onPress={generateTxt}
+              onPress={generateFile}
               disabled={generating || selectedChapters.size === 0}
             >
               {generating ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Generate Text File</Text>
+                <Text style={styles.buttonText}>Generate {outputFormat.toUpperCase()}</Text>
               )}
             </TouchableOpacity>
             {progress > 0 && progress < 100 && (
@@ -422,7 +502,7 @@ export default function App() {
         {chapters.length === 0 && (
           <View style={[styles.section, { marginTop: 40 }]}>
             <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22 }}>
-              Paste any novel URL. Use AI to preview chapter summaries before downloading. Works 100% offline.
+              Paste any novel URL. Generate books in TXT, EPUB, or PDF format. Use AI to preview chapter summaries.
             </Text>
           </View>
         )}
