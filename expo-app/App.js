@@ -17,6 +17,8 @@ import * as Sharing from 'expo-sharing';
 
 const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+// Try to connect to backend, but it's optional
+const BACKEND_URL = 'http://localhost:5000';
 
 const styles = StyleSheet.create({
   container: { flex: 1, position: 'relative', backgroundColor: '#fff' },
@@ -31,6 +33,11 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#007AFF', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, alignItems: 'center', marginBottom: 10 },
   buttonDisabled: { backgroundColor: '#ccc' },
   buttonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  formatButtonsContainer: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12, gap: 8 },
+  formatButton: { flex: 1, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 8, borderWidth: 2, borderColor: '#ddd', alignItems: 'center', backgroundColor: '#f9f9f9' },
+  formatButtonActive: { backgroundColor: '#007AFF', borderColor: '#007AFF' },
+  formatButtonText: { fontSize: 11, fontWeight: '600', color: '#666' },
+  formatButtonTextActive: { color: '#fff' },
   chapterItem: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   chapterTitle: { fontSize: 13, fontWeight: '500', color: '#000' },
   chapterUrl: { fontSize: 11, color: '#999', marginTop: 4 },
@@ -78,6 +85,22 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [outputFormat, setOutputFormat] = useState('txt');
+  const [backendAvailable, setBackendAvailable] = useState(false);
+
+  // Check backend availability on mount
+  React.useEffect(() => {
+    checkBackendAvailability();
+  }, []);
+
+  const checkBackendAvailability = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/jobs`, { timeout: 2000 });
+      setBackendAvailable(response.ok);
+    } catch (error) {
+      setBackendAvailable(false);
+    }
+  };
 
   const analyzeUrl = async () => {
     if (!url.trim()) {
@@ -235,6 +258,100 @@ export default function App() {
     return data.candidates[0].content.parts[0].text;
   };
 
+  const generateFile = async () => {
+    if (selectedChapters.size === 0) {
+      Alert.alert('Error', 'Please select at least one chapter');
+      return;
+    }
+
+    // Offline-only fallback: text generation works without backend
+    if (outputFormat === 'txt' || !backendAvailable) {
+      await generateTxt();
+      return;
+    }
+
+    // Online: use backend for EPUB/PDF
+    setGenerating(true);
+    setProgress(0);
+    try {
+      const selectedChapterIds = chapters.filter(ch => selectedChapters.has(ch.id)).map((ch, i) => i.toString());
+      
+      // Create job via backend API
+      const analyzeRes = await fetch(`${BACKEND_URL}/api/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!analyzeRes.ok) {
+        throw new Error('Backend error: ' + analyzeRes.statusText);
+      }
+
+      const { job } = await analyzeRes.json();
+
+      // Start download with selected format
+      const downloadRes = await fetch(`${BACKEND_URL}/api/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: job.id,
+          selectedChapterIds,
+          outputFormat,
+          settings: { concurrentDownloads: 3, delayBetweenRequests: 500 },
+        }),
+      });
+
+      if (!downloadRes.ok) {
+        throw new Error('Download failed: ' + downloadRes.statusText);
+      }
+
+      // Poll for completion
+      let completed = false;
+      let attempts = 0;
+      const maxAttempts = 300;
+
+      while (!completed && attempts < maxAttempts) {
+        const statusRes = await fetch(`${BACKEND_URL}/api/jobs/${job.id}`);
+        if (!statusRes.ok) throw new Error('Status check failed');
+
+        const jobData = await statusRes.json();
+        setProgress(jobData.progress || 0);
+
+        if (jobData.status === 'completed') {
+          completed = true;
+          const fileRes = await fetch(`${BACKEND_URL}/api/download-file/${job.id}`);
+          if (!fileRes.ok) throw new Error('File download failed');
+
+          const fileBlob = await fileRes.blob();
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+            const fileName = `${bookTitle.replace(/[^a-zA-Z0-9]/g, '_')}.${outputFormat}`;
+            const filePath = FileSystem.DocumentDirectory + fileName;
+            await FileSystem.writeAsStringAsync(filePath, base64, { encoding: FileSystem.EncodingType.Base64 });
+            setDownloadedFiles([...downloadedFiles, { name: fileName, path: filePath }]);
+            Alert.alert('Success', `${outputFormat.toUpperCase()} file generated!`);
+            setProgress(0);
+          };
+          reader.readAsDataURL(fileBlob);
+        } else if (jobData.status === 'error') {
+          throw new Error(jobData.error || 'Download failed');
+        }
+
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      if (!completed) {
+        throw new Error('Download timed out');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const generateTxt = async () => {
     if (selectedChapters.size === 0) {
       Alert.alert('Error', 'Please select at least one chapter');
@@ -308,7 +425,7 @@ export default function App() {
       <View style={styles.screenInner}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>WebToBook</Text>
-          <Text style={styles.headerSubtitle}>Offline Novel Converter</Text>
+          <Text style={styles.headerSubtitle}>Novel Converter {backendAvailable ? '(Online)' : '(Offline)'}</Text>
         </View>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
@@ -381,16 +498,35 @@ export default function App() {
 
         {chapters.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Step 3: Generate Text File</Text>
+            <Text style={styles.sectionTitle}>Step 3: Choose Format</Text>
+            <View style={styles.formatButtonsContainer}>
+              {['txt', 'epub', 'pdf'].map(format => (
+                <TouchableOpacity
+                  key={format}
+                  style={[styles.formatButton, outputFormat === format && styles.formatButtonActive]}
+                  onPress={() => setOutputFormat(format)}
+                  disabled={generating || (format !== 'txt' && !backendAvailable)}
+                >
+                  <Text style={[styles.formatButtonText, outputFormat === format && styles.formatButtonTextActive]}>
+                    {format.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {!backendAvailable && outputFormat !== 'txt' && (
+              <Text style={{ fontSize: 11, color: '#ef4444', marginBottom: 10 }}>
+                Offline mode: {outputFormat.toUpperCase()} requires internet connection. Switch to TXT or go online.
+              </Text>
+            )}
             <TouchableOpacity
               style={[styles.button, (generating || selectedChapters.size === 0) && styles.buttonDisabled]}
-              onPress={generateTxt}
-              disabled={generating || selectedChapters.size === 0}
+              onPress={generateFile}
+              disabled={generating || selectedChapters.size === 0 || (outputFormat !== 'txt' && !backendAvailable)}
             >
               {generating ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Generate Text File</Text>
+                <Text style={styles.buttonText}>Generate {outputFormat.toUpperCase()}</Text>
               )}
             </TouchableOpacity>
             {progress > 0 && progress < 100 && (
@@ -421,7 +557,7 @@ export default function App() {
         {chapters.length === 0 && (
           <View style={[styles.section, { marginTop: 40 }]}>
             <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22 }}>
-              Paste any novel URL. Use AI to preview chapter summaries before downloading as text files. 100% offline.
+              Paste any novel URL. Generate TXT offline, or EPUB/PDF when connected to internet. Use AI to preview chapters.
             </Text>
           </View>
         )}
