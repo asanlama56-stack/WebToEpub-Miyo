@@ -41,6 +41,52 @@ export async function registerRoutes(
     next();
   });
 
+  // Shell endpoint with proper JSON parsing
+  app.post("/api/shell/execute", express.json({ limit: "10mb" }), async (req: Request, res: Response) => {
+    try {
+      const { command, timeout } = req.body;
+      
+      if (!command || typeof command !== "string") {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Command is required and must be a string" 
+        });
+      }
+
+      // Security: Prevent dangerous commands
+      const dangerousPatterns = ["rm -rf", "sudo", "chmod 777"];
+      if (dangerousPatterns.some(pattern => command.includes(pattern))) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Command contains restricted patterns for safety" 
+        });
+      }
+
+      const result = await executeCommand(command, timeout || 30000);
+      
+      res.json({
+        success: result.success,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        command,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Execution failed";
+      res.status(500).json({ success: false, error: msg });
+    }
+  });
+
+  // Shell status endpoint
+  app.get("/api/shell/status", (_req: Request, res: Response) => {
+    res.json({ 
+      status: "ready", 
+      timestamp: new Date().toISOString(),
+      canExecute: true 
+    });
+  });
+
   app.post("/api/analyze", async (req: Request, res: Response) => {
     try {
       const parsed = analyzeUrlSchema.parse(req.body);
