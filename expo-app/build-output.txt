@@ -1,0 +1,10 @@
+Resolved "production" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "production" environment on EAS.
+
+
+
+You need to be on SDK 46 or higher, and use expo-updates >= 0.14.4 to use appVersion runtime policy.
+✔ Using remote Android credentials (Expo server)
+✔ Using Keystore from configuration: Build Credentials An0YjRZZ7o (default)
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
