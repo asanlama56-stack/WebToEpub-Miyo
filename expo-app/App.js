@@ -14,8 +14,6 @@ import {
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 
-const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
 // Try to connect to backend, but it's optional
 const BACKEND_URL = 'http://localhost:5000';
 
@@ -40,8 +38,6 @@ const styles = StyleSheet.create({
   chapterItem: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: '#e0e0e0' },
   chapterTitle: { fontSize: 13, fontWeight: '500', color: '#000' },
   chapterUrl: { fontSize: 11, color: '#999', marginTop: 4 },
-  summarizeBtn: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#10B981', borderRadius: 6 },
-  summarizeBtnText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   progressContainer: { backgroundColor: '#fff', padding: 12, borderRadius: 8, marginBottom: 10 },
   progressBar: { height: 6, backgroundColor: '#e0e0e0', borderRadius: 3, marginBottom: 8 },
   progressFill: { height: 6, backgroundColor: '#007AFF', borderRadius: 3 },
@@ -51,21 +47,7 @@ const styles = StyleSheet.create({
   shareButton: { backgroundColor: '#34C759', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
   shareButtonText: { color: '#fff', fontSize: 11, fontWeight: '600' },
   selectAllButton: { color: '#007AFF', fontSize: 12, fontWeight: '600' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 16, maxHeight: '80%', width: '100%' },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#000', marginBottom: 12 },
-  modalText: { fontSize: 13, color: '#333', lineHeight: 20, marginBottom: 16 },
-  modalCloseBtn: { backgroundColor: '#007AFF', paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
-  floatingButton: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', elevation: 12, zIndex: 9999, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.16, shadowRadius: 8 },
-  floatingButtonText: { fontSize: 24, lineHeight: 24, textAlign: 'center' },
-  chatContainer: { maxHeight: '85%', width: '100%', backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingTop: 12, paddingBottom: 20, paddingHorizontal: 12 },
-  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 6, paddingBottom: 6 },
-  chatTitle: { fontSize: 16, fontWeight: '700' },
-  chatClose: { color: '#ef4444', fontWeight: '600' },
-  chatBody: { flex: 1, paddingHorizontal: 6, paddingVertical: 8 },
-  chatInput: { flex: 1, height: 44, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', paddingHorizontal: 12 },
-  chatInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 6, marginTop: 6 },
-  chatSendBtn: { marginLeft: 8, paddingHorizontal: 12, height: 44, borderRadius: 10, backgroundColor: '#0ea5a4', justifyContent: 'center', alignItems: 'center' },
+  noChaptersText: { fontSize: 14, color: '#999', textAlign: 'center', marginTop: 32 },
 });
 
 export default function App() {
@@ -77,13 +59,6 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [downloadedFiles, setDownloadedFiles] = useState([]);
   const [bookTitle, setBookTitle] = useState('');
-  const [summaryModal, setSummaryModal] = useState(false);
-  const [currentSummary, setCurrentSummary] = useState('');
-  const [summarizing, setSummarizing] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
   const [outputFormat, setOutputFormat] = useState('txt');
   const [backendAvailable, setBackendAvailable] = useState(false);
 
@@ -147,7 +122,7 @@ export default function App() {
         if (href && title && title.length < 200) {
           const absoluteUrl = resolveUrl(href, baseUrl);
           if (!chapters.some(ch => ch.url === absoluteUrl)) {
-            chapters.push({ id: chapters.length, title, url: absoluteUrl, summary: null });
+            chapters.push({ id: chapters.length, title, url: absoluteUrl });
           }
         }
       }
@@ -220,41 +195,6 @@ export default function App() {
     } catch (error) {
       return 'Failed to fetch this chapter.';
     }
-  };
-
-  const generateSummary = async (chapterId) => {
-    const chapter = chapters.find(ch => ch.id === chapterId);
-    if (!chapter) return;
-
-    setSummarizing(true);
-    try {
-      const content = await fetchChapterContent(chapter.url);
-      const summary = await callGeminiAPI(`Summarize this chapter in 2-3 sentences:\n\n${content.substring(0, 3000)}`);
-      setCurrentSummary(summary);
-      setSummaryModal(true);
-
-      const updatedChapters = chapters.map(ch => ch.id === chapterId ? { ...ch, summary } : ch);
-      setChapters(updatedChapters);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to generate summary: ' + error.message);
-    } finally {
-      setSummarizing(false);
-    }
-  };
-
-  const callGeminiAPI = async (prompt) => {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 500 },
-      }),
-    });
-
-    if (!response.ok) throw new Error('Gemini API error');
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
   };
 
   const generateFile = async () => {
@@ -390,35 +330,6 @@ export default function App() {
     }
   };
 
-  const handleSendChat = async () => {
-    if (!chatInput.trim()) return;
-
-    const userMessage = chatInput;
-    setChatInput('');
-    setChatMessages([...chatMessages, { id: Date.now(), text: userMessage, sender: 'user' }]);
-    setChatLoading(true);
-
-    try {
-      const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: userMessage }] }],
-          generationConfig: { maxOutputTokens: 300 },
-        }),
-      });
-
-      if (!response.ok) throw new Error('AI error');
-      const data = await response.json();
-      const aiReply = data.candidates[0].content.parts[0].text;
-      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: aiReply, sender: 'ai' }]);
-    } catch (error) {
-      setChatMessages(prev => [...prev, { id: Date.now() + 1, text: 'Sorry, I encountered an error. Please try again.', sender: 'ai' }]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.screenInner}>
@@ -473,23 +384,13 @@ export default function App() {
               data={chapters}
               keyExtractor={item => item.id.toString()}
               renderItem={({ item }) => (
-                <View>
-                  <TouchableOpacity
-                    style={[styles.chapterItem, selectedChapters.has(item.id) && { backgroundColor: '#e3f2fd', borderColor: '#007AFF' }]}
-                    onPress={() => toggleChapter(item.id)}
-                  >
-                    <Text style={styles.chapterTitle}>{item.title}</Text>
-                    <Text style={styles.chapterUrl}>{item.url.substring(0, 50)}...</Text>
-                    {item.summary && <Text style={{ fontSize: 11, color: '#10B981', marginTop: 6 }}>✓ Summary available</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.summarizeBtn} onPress={() => generateSummary(item.id)}>
-                    {summarizing ? (
-                      <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                      <Text style={styles.summarizeBtnText}>Summarize</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={[styles.chapterItem, selectedChapters.has(item.id) && { backgroundColor: '#e3f2fd', borderColor: '#007AFF' }]}
+                  onPress={() => toggleChapter(item.id)}
+                >
+                  <Text style={styles.chapterTitle}>{item.title}</Text>
+                  <Text style={styles.chapterUrl}>{item.url.substring(0, 50)}...</Text>
+                </TouchableOpacity>
               )}
             />
           </View>
@@ -553,75 +454,13 @@ export default function App() {
           </View>
         )}
 
-        {chapters.length === 0 && (
-          <View style={[styles.section, { marginTop: 40 }]}>
-            <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22 }}>
-              Paste any novel URL. Generate TXT offline, or EPUB/PDF when connected to internet. Use AI to preview chapters.
-            </Text>
-          </View>
+        {chapters.length === 0 && !loading && (
+          <Text style={styles.noChaptersText}>
+            Enter a URL above to get started. App works both online (EPUB/PDF) and offline (TXT).
+          </Text>
         )}
-      </ScrollView>
+        </ScrollView>
       </View>
-
-      <TouchableOpacity activeOpacity={0.85} style={styles.floatingButton} onPress={() => setChatOpen(true)} accessibilityLabel="Open AI chat">
-        <Text style={styles.floatingButtonText}>🤖</Text>
-      </TouchableOpacity>
-
-      <Modal visible={summaryModal} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>AI Summary</Text>
-            <ScrollView style={{ maxHeight: 300, marginBottom: 12 }}>
-              <Text style={styles.modalText}>{currentSummary}</Text>
-            </ScrollView>
-            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSummaryModal(false)}>
-              <Text style={styles.buttonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={chatOpen} animationType="slide" transparent={true} onRequestClose={() => setChatOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.chatContainer}>
-            <View style={styles.chatHeader}>
-              <Text style={styles.chatTitle}>AI Chat</Text>
-              <TouchableOpacity onPress={() => setChatOpen(false)}>
-                <Text style={styles.chatClose}>Close</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.chatBody}>
-              {chatMessages.length === 0 && (
-                <Text style={{ marginBottom: 12 }}>Ask me anything about the app or your books!</Text>
-              )}
-              {chatMessages.map(msg => (
-                <View key={msg.id} style={{ marginBottom: 10 }}>
-                  <Text style={{ color: msg.sender === 'user' ? '#007AFF' : '#6b7280', marginBottom: 4 }}>
-                    {msg.sender === 'user' ? 'You' : 'AI'}
-                  </Text>
-                  <Text style={{ color: '#000', fontSize: 13 }}>{msg.text}</Text>
-                </View>
-              ))}
-              {chatLoading && <ActivityIndicator size="small" color="#10B981" />}
-            </View>
-
-            <View style={styles.chatInputRow}>
-              <TextInput
-                placeholder="Type a message..."
-                style={styles.chatInput}
-                value={chatInput}
-                onChangeText={setChatInput}
-                editable={!chatLoading}
-                placeholderTextColor="#9CA3AF"
-              />
-              <TouchableOpacity style={styles.chatSendBtn} onPress={handleSendChat} disabled={chatLoading || !chatInput.trim()}>
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Send</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
