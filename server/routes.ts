@@ -11,6 +11,7 @@ import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { getImageCache } from "./pipeline/imagePipeline";
 import { createImageJob, getImageJob } from "./jobs/imageJobs";
+import { executeCommand } from "./shell-executor";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls";
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -728,6 +729,52 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
       console.error("[AI-EXEC] Error:", msg);
       res.status(500).json({ error: msg });
     }
+  });
+
+  // Shell Terminal API - Execute commands in Replit shell
+  app.post("/api/shell/execute", async (req: Request, res: Response) => {
+    try {
+      const { command, timeout } = req.body;
+      
+      if (!command || typeof command !== "string") {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Command is required and must be a string" 
+        });
+      }
+
+      // Security: Prevent dangerous commands
+      const dangerousPatterns = ["rm -rf", "sudo", "chmod 777"];
+      if (dangerousPatterns.some(pattern => command.includes(pattern))) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Command contains restricted patterns for safety" 
+        });
+      }
+
+      const result = await executeCommand(command, timeout || 30000);
+      
+      res.json({
+        success: result.success,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        command,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Execution failed";
+      res.status(500).json({ success: false, error: msg });
+    }
+  });
+
+  // Get shell status (health check)
+  app.get("/api/shell/status", (_req: Request, res: Response) => {
+    res.json({ 
+      status: "ready", 
+      timestamp: new Date().toISOString(),
+      canExecute: true 
+    });
   });
 
   app.get("/api/health", (_req: Request, res: Response) => {
