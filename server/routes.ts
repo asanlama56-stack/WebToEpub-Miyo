@@ -25,10 +25,7 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
-  app.use(express.json({ limit: "500mb" }));
-  app.use(express.urlencoded({ limit: "500mb", extended: true }));
-
-  // CORS middleware - allow requests from external apps
+  // CORS middleware - FIRST, applies to all routes
   app.use((req: Request, res: Response, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -41,7 +38,7 @@ export async function registerRoutes(
     next();
   });
 
-  // Shell endpoint with proper JSON parsing
+  // Shell endpoints BEFORE global JSON parser - use custom parser
   app.post("/api/shell/execute", express.json({ limit: "10mb" }), async (req: Request, res: Response) => {
     try {
       const { command, timeout } = req.body;
@@ -78,7 +75,6 @@ export async function registerRoutes(
     }
   });
 
-  // Shell status endpoint
   app.get("/api/shell/status", (_req: Request, res: Response) => {
     res.json({ 
       status: "ready", 
@@ -86,6 +82,10 @@ export async function registerRoutes(
       canExecute: true 
     });
   });
+
+  // Global JSON parser - for all other routes
+  app.use(express.json({ limit: "500mb" }));
+  app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
   app.post("/api/analyze", async (req: Request, res: Response) => {
     try {
