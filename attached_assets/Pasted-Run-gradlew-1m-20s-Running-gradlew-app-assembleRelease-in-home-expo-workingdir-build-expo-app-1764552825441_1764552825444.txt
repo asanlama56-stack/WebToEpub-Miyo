@@ -1,0 +1,84 @@
+Run gradlew
+
+1m 20s
+
+
+Running 'gradlew :app:assembleRelease' in /home/expo/workingdir/build/expo-app/android
+Welcome to Gradle 8.10.2!
+Here are the highlights of this release:
+ - Support for Java 23
+- Faster configuration cache
+ - Better configuration cache reports
+For more details see https://docs.gradle.org/8.10.2/release-notes.html
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.10.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build
+> Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :gradle-plugin:settings-plugin:pluginDescriptors
+> Task :gradle-plugin:settings-plugin:processResources
+> Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :gradle-plugin:shared:compileKotlin
+> Task :gradle-plugin:shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:classes
+UP-TO-DATE
+> Task :gradle-plugin:shared:jar
+> Task :gradle-plugin:settings-plugin:compileKotlin
+> Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:settings-plugin:classes
+> Task :gradle-plugin:settings-plugin:jar
+> Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :expo-updates-gradle-plugin:checkKotlinGradlePluginConfigurationErrors
+> Task :expo-updates-gradle-plugin:pluginDescriptors
+> Task :expo-updates-gradle-plugin:processResources
+> Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors
+> Task :gradle-plugin:react-native-gradle-plugin:processResources
+> Task :gradle-plugin:react-native-gradle-plugin:compileKotlin
+w: file:///home/expo/workingdir/build/expo-app/node_modules/@react-native/gradle-plugin/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/ReactPlugin.kt:97:35 Unnecessary safe call on a non-null receiver of type Jvm!
+> Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :gradle-plugin:react-native-gradle-plugin:classes
+> Task :gradle-plugin:react-native-gradle-plugin:jar
+> Task :expo-updates-gradle-plugin:compileKotlin
+> Task :expo-updates-gradle-plugin:compileJava
+NO-SOURCE
+> Task :expo-updates-gradle-plugin:classes
+> Task :expo-updates-gradle-plugin:jar
+> Configure project :app
+ ℹ️  Applying gradle plugin 'expo-updates-gradle-plugin' (expo-updates@0.27.4)
+FAILURE: Build completed with 2 failures.
+1: Task failed with an exception.
+-----------
+* Where:
+Build file '/home/expo/workingdir/build/expo-app/node_modules/expo-sharing/android/build.gradle' line: 3
+* What went wrong:
+Plugin [id: 'expo-module-gradle-plugin'] was not found in any of the following sources:
+- Gradle Core Plugins (not a core plugin. For more available plugins, please refer to https://docs.gradle.org/8.10.2/userguide/plugin_reference.html in the Gradle documentation.)
+- Included Builds (None of the included builds contain this plugin)
+- Plugin Repositories (plugin dependency must include a version number for this source)
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+2: Task failed with an exception.
+-----------
+* Where:
+Script '/home/expo/workingdir/build/expo-app/node_modules/expo-modules-core/android/ExpoModulesCorePlugin.gradle' line: 95
+* What went wrong:
+A problem occurred configuring project ':expo'.
+> Could not get unknown property 'release' for SoftwareComponent container of type org.gradle.api.internal.component.DefaultSoftwareComponentContainer.
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+BUILD FAILED in 1m 19s
+18 actionable tasks: 18 executed
+Error: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
+Fail job
+
+1s
+
+
+Build failed: Gradle build failed with unknown error. See logs for the "Run gradlew" phase for more information.
