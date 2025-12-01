@@ -22,13 +22,6 @@
         "projectId": "cb1a02fc-5887-426e-b67d-25cef96917bd"
       }
     },
-    "updates": {
-      "enabled": false,
-      "url": "https://u.expo.dev/cb1a02fc-5887-426e-b67d-25cef96917bd"
-    },
-    "ios": {},
-    "runtimeVersion": {
-      "policy": "appVersion"
-    }
+    "ios": {}
   }
 }
