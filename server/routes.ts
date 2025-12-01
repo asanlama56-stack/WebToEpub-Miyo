@@ -28,6 +28,19 @@ export async function registerRoutes(
   app.use(express.json({ limit: "500mb" }));
   app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
+  // CORS middleware - allow requests from external apps
+  app.use((req: Request, res: Response, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    
+    // Handle preflight requests
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   app.post("/api/analyze", async (req: Request, res: Response) => {
     try {
       const parsed = analyzeUrlSchema.parse(req.body);
