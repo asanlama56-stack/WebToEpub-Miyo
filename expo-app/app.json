@@ -20,8 +20,12 @@
       }
     },
     "updates": {
-      "enabled": false
+      "enabled": false,
+      "url": "https://u.expo.dev/cb1a02fc-5887-426e-b67d-25cef96917bd"
     },
-    "ios": {}
+    "ios": {},
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
