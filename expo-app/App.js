@@ -13,7 +13,6 @@ import {
   Modal,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
@@ -385,7 +384,7 @@ export default function App() {
 
   const shareFile = async (filePath) => {
     try {
-      await Sharing.shareAsync(filePath);
+      Alert.alert('File Saved', `Your file is saved at:\n${filePath}`);
     } catch (error) {
       Alert.alert('Error', 'Failed to share: ' + error.message);
     }
