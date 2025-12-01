@@ -1,0 +1,44 @@
+Bundle JavaScript
+
+8s
+
+
+Starting Metro Bundler
+Error: Unable to resolve module expo-file-system from /home/expo/workingdir/build/expo-app/App.js: expo-file-system could not be found within the project or in these directories:
+  node_modules
+  13 |   Modal,
+  14 | } from 'react-native';
+> 15 | import * as FileSystem from 'expo-file-system';
+     |                              ^
+  16 | import * as Sharing from 'expo-sharing';
+  17 |
+  18 | const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
+Error: Unable to resolve module expo-file-system from /home/expo/workingdir/build/expo-app/App.js: expo-file-system could not be found within the project or in these directories:
+  node_modules
+  13 |   Modal,
+  14 | } from 'react-native';
+> 15 | import * as FileSystem from 'expo-file-system';
+     |                              ^
+  16 | import * as Sharing from 'expo-sharing';
+  17 |
+  18 | const GEMINI_API_KEY = 'AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls';
+    at ModuleResolver.resolveDependency (/home/expo/workingdir/build/expo-app/node_modules/metro/src/node-haste/DependencyGraph/ModuleResolution.js:139:15)
+    at DependencyGraph.resolveDependency (/home/expo/workingdir/build/expo-app/node_modules/metro/src/node-haste/DependencyGraph.js:232:43)
+    at /home/expo/workingdir/build/expo-app/node_modules/metro/src/lib/transformHelpers.js:156:21
+    at resolveDependencies (/home/expo/workingdir/build/expo-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:42:25)
+    at visit (/home/expo/workingdir/build/expo-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:83:30)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Promise.all (index 2)
+    at visit (/home/expo/workingdir/build/expo-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:92:5)
+    at async Promise.all (index 0)
+    at buildSubgraph (/home/expo/workingdir/build/expo-app/node_modules/metro/src/DeltaBundler/buildSubgraph.js:103:3)
+npx expo export:embed --eager --platform android --dev false exited with non-zero code: 1
+
+Fail job
+
+1s
+
+
+Build failed
+
+npx expo export:embed --eager --platform android --dev false exited with non-zero code: 1
