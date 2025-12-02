@@ -8,7 +8,9 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
@@ -91,7 +93,11 @@
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "expo": "~49.0.23",
+    "expo-splash-screen": "~0.20.5",
+    "expo-status-bar": "~1.6.0",
+    "react-native": "0.72.10"
   },
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.4.4",
@@ -116,7 +122,8 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
     "typescript": "5.6.3",
-    "vite": "^5.4.20"
+    "vite": "^5.4.20",
+    "@babel/core": "^7.20.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
