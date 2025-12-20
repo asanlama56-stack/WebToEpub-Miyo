@@ -71,9 +71,21 @@ shared/
 - Include/exclude images option
 - HTML cleanup toggle
 
-## Recent Changes
-- Initial implementation of web-to-EPUB converter
-- Added support for 500+ reading sites
-- Implemented EPUB, PDF, and HTML generation
-- Added dark/light theme support
-- Created responsive UI with progress tracking
+## Recent Changes (Dec 20, 2025)
+- ✅ Added international chapter detection patterns for Chinese (第1章), Japanese (第1話), Korean (제1화) novels
+- ✅ Fixed chapter detection on non-English sites like ixdzs.tw
+- 🔄 Identified remaining issue: Sites with hidden/collapsible chapter lists (ixdzs.tw shows only last 8 chapters out of 600+)
+- Previous: Initial web-to-EPUB converter implementation
+- Previous: EPUB, PDF, and HTML generation support  
+- Previous: Dark/light theme support with responsive UI
+
+## Known Limitations
+- **Dynamic chapter lists**: Sites requiring clicking "collapse/expand" buttons to view all chapters need JavaScript rendering (Puppeteer integration pending - requires browser executable path configuration in Replit)
+- **Pagination**: Some sites use paginated or infinite-scroll chapter lists that aren't fully crawled
+- **Image processing**: Cover image pipeline temporarily disabled due to missing utilities
+
+## Next Steps to Fix ixdzs.tw Issue
+1. Implement proper Puppeteer setup with browser executable path
+2. Add JavaScript execution to click expand buttons
+3. Wait for dynamic chapter list to populate
+4. Then parse the expanded HTML with Cheerio
