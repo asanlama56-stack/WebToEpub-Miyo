@@ -58,6 +58,7 @@ async function fetchWithRetry(
 }
 
 const chapterPatterns = [
+  // English patterns
   /chapter\s*[\d.]+/i,
   /ch\.\s*[\d.]+/i,
   /episode\s*[\d.]+/i,
@@ -69,6 +70,26 @@ const chapterPatterns = [
   /epilogue/i,
   /introduction/i,
   /preface/i,
+  
+  // Chinese patterns (Traditional & Simplified)
+  /第\d+章/,        // 第1章 (Chapter 1)
+  /第\d+回/,        // 第1回 (Episode 1)
+  /第\d+部/,        // 第1部 (Part 1)
+  /第\d+卷/,        // 第1卷 (Volume 1)
+  /第\d+编/,        // 第1编 (Compilation 1)
+  /章\s*\d+/i,      // Chapter 1 with Chinese char
+  /第\s*\d+\s*章/,  // 第 1 章 (with spaces)
+  
+  // Japanese patterns
+  /第\d+話/,        // 第1話 (Episode 1)
+  /第\d+編/,        // 第1編 (Section 1)
+  
+  // Korean patterns
+  /제\d+화/,        // 제1화 (Episode 1)
+  /제\d+부/,        // 제1부 (Part 1)
+  
+  // Fallback numeric patterns for international sites
+  /^\d+$/,          // Just a number
 ];
 
 const chapterLinkSelectors = [
