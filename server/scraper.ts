@@ -57,7 +57,6 @@ async function fetchWithRetry(
   throw lastError || new Error("Failed to fetch URL");
 }
 
-
 const chapterPatterns = [
   // English patterns
   /chapter\s*[\d.]+/i,

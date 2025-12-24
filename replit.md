@@ -80,12 +80,16 @@ shared/
 - Previous: Dark/light theme support with responsive UI
 
 ## Known Limitations
-- **Dynamic chapter lists**: Sites requiring clicking "collapse/expand" buttons to view all chapters need JavaScript rendering (Puppeteer integration pending - requires browser executable path configuration in Replit)
+- **Dynamic chapter lists** (e.g., ixdzs.tw): Sites requiring clicking "collapse/expand" buttons to view all chapters need JavaScript rendering. The site hides 600+ chapters behind a JavaScript toggle, showing only 8 by default. **Fix requires:** Puppeteer with valid browser executable path in Replit environment (challenging due to Nix environment isolation)
 - **Pagination**: Some sites use paginated or infinite-scroll chapter lists that aren't fully crawled
 - **Image processing**: Cover image pipeline temporarily disabled due to missing utilities
 
-## Next Steps to Fix ixdzs.tw Issue
-1. Implement proper Puppeteer setup with browser executable path
-2. Add JavaScript execution to click expand buttons
-3. Wait for dynamic chapter list to populate
-4. Then parse the expanded HTML with Cheerio
+## Technical Debt - ixdzs.tw JavaScript Loading
+- Current: Cheerio-only parsing captures visible chapters (8 chapters)
+- Attempted: Puppeteer with executablePath discovery - failed due to browser path in Nix environment
+- Blocker: puppeteer-core requires valid browser executable path; Nix environment isolation makes this complex
+- Alternative approaches to explore:
+  1. Use playwright instead of puppeteer-core
+  2. Manually set PUPPETEER_EXECUTABLE_PATH or CHROMIUM_PATH environment variable
+  3. Reverse-engineer ixdzs.tw's JavaScript API calls to get chapter list
+  4. Use Replit Shell Terminal to run browser rendering as external service
