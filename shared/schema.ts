@@ -24,6 +24,7 @@ export const ContentType = {
   NOVEL: "novel",
   TECHNICAL: "technical",
   ARTICLE: "article",
+  MANGA: "manga",
   UNKNOWN: "unknown",
 } as const;
 
@@ -35,6 +36,7 @@ export interface Chapter {
   url: string;
   index: number;
   content?: string;
+  imageUrls?: string[];
   wordCount?: number;
   status: DownloadStatusType;
   error?: string;

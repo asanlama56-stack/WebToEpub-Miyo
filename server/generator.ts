@@ -110,6 +110,22 @@ function createStyleCss(): string {
   color: #333;
 }
 
+.manga-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.manga-page {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 0;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: Arial, Helvetica, sans-serif;
   margin-top: 1.5em;
@@ -176,7 +192,7 @@ nav li {
 `;
 }
 
-function createChapterXhtml(title: string, content: string): string {
+function createChapterXhtml(title: string, content: string, imageUrls?: string[]): string {
   let cleanContent = content
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
@@ -185,6 +201,12 @@ function createChapterXhtml(title: string, content: string): string {
     .replace(/<br\s*\/?>/gi, "<br/>")
     .replace(/<hr\s*\/?>/gi, "<hr/>")
     .replace(/<img([^>]*)>/gi, "<img$1/>");
+
+  const imagesHtml = imageUrls && imageUrls.length > 0
+    ? `<div class="manga-strip">
+        ${imageUrls.map(url => `<img src="${url}" alt="Manga Page" class="manga-page"/>`).join("\n")}
+      </div>`
+    : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
@@ -197,6 +219,7 @@ function createChapterXhtml(title: string, content: string): string {
 <body>
   <h1>${escapeXml(title)}</h1>
   <div class="chapter-content">
+    ${imagesHtml}
     ${cleanContent}
   </div>
 </body>
@@ -257,8 +280,8 @@ export async function generateEpub(
     }
 
     chaptersWithContent.forEach((chapter, index) => {
-      const xhtml = createChapterXhtml(chapter.title, chapter.content || "");
-      archive.append(xhtml, { name: `OEBPS/chapter${index}.xhtml` });
+      const xhtml = createChapterXhtml(chapter.title, chapter.content || "", chapter.imageUrls);
+      archive.append(xhtml, { name: \`OEBPS/chapter\${index}.xhtml\` });
     });
 
     archive.finalize();
