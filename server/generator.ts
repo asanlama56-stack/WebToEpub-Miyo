@@ -243,7 +243,7 @@ export async function generateEpub(
       zlib: { level: 6 },
     });
 
-    archive.on("warning", (err) => {
+    archive.on("warning", (err: any) => {
       if (err.code === "ENOENT") {
         console.warn("[EPUB] Archive warning:", err.message);
       } else {
@@ -308,7 +308,7 @@ export async function generatePdf(
         bufferPages: false,
       });
 
-      doc.on("data", (chunk) => chunks.push(chunk));
+      doc.on("data", (chunk: any) => chunks.push(chunk));
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", reject);
 

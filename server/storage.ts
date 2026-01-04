@@ -7,7 +7,7 @@ export interface IStorage {
   getAllJobs(): Promise<DownloadJob[]>;
   updateJob(id: string, updates: Partial<DownloadJob>): Promise<DownloadJob | undefined>;
   updateJobChapters(id: string, chapters: Chapter[]): Promise<DownloadJob | undefined>;
-  updateChapterStatus(jobId: string, chapterId: string, status: DownloadStatusType, content?: string, error?: string): Promise<void>;
+  updateChapterStatus(jobId: string, chapterId: string, status: DownloadStatusType, content?: string, error?: string, imageUrls?: string[]): Promise<void>;
   updateAnalysisProgress(jobId: string, progress: number): Promise<void>;
   deleteJob(id: string): Promise<boolean>;
   clearCompletedJobs(): Promise<void>;
@@ -67,7 +67,8 @@ export class MemStorage implements IStorage {
     chapterId: string,
     status: DownloadStatusType,
     content?: string,
-    error?: string
+    error?: string,
+    imageUrls?: string[]
   ): Promise<void> {
     const job = this.jobs.get(jobId);
     if (!job) return;
@@ -80,6 +81,7 @@ export class MemStorage implements IStorage {
       status,
       content,
       error,
+      imageUrls,
     };
     
     this.jobs.set(jobId, job);

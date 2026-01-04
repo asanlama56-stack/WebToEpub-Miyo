@@ -6,12 +6,11 @@ import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
 import { analyzeUrl, downloadChaptersParallel } from "./scraper";
 import { generateOutput } from "./generator";
-import { analyzeUrlSchema, startDownloadSchema, type BookMetadata, type DownloadStatusType } from "@shared/schema";
+import { analyzeUrlSchema, startDownloadSchema, type BookMetadata, type DownloadStatusType, defaultSettings } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { getImageCache } from "./pipeline/imagePipeline";
 import { createImageJob, getImageJob } from "./jobs/imageJobs";
-import { executeCommand } from "./shell-executor";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSyB4ilhZI-C6_J6-AADS0VONispc8IhTXls";
 const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -36,51 +35,6 @@ export async function registerRoutes(
       return res.sendStatus(200);
     }
     next();
-  });
-
-  // Shell endpoints BEFORE global JSON parser - use custom parser
-  app.post("/api/shell/execute", express.json({ limit: "10mb" }), async (req: Request, res: Response) => {
-    try {
-      const { command, timeout } = req.body;
-      
-      if (!command || typeof command !== "string") {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Command is required and must be a string" 
-        });
-      }
-
-      // Security: Prevent dangerous commands
-      const dangerousPatterns = ["rm -rf", "sudo", "chmod 777"];
-      if (dangerousPatterns.some(pattern => command.includes(pattern))) {
-        return res.status(403).json({ 
-          success: false, 
-          error: "Command contains restricted patterns for safety" 
-        });
-      }
-
-      const result = await executeCommand(command, timeout || 30000);
-      
-      res.json({
-        success: result.success,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-        command,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Execution failed";
-      res.status(500).json({ success: false, error: msg });
-    }
-  });
-
-  app.get("/api/shell/status", (_req: Request, res: Response) => {
-    res.json({ 
-      status: "ready", 
-      timestamp: new Date().toISOString(),
-      canExecute: true 
-    });
   });
 
   // Global JSON parser - for all other routes
@@ -158,14 +112,9 @@ export async function registerRoutes(
         });
       }
 
-      if (req.body.metadata) {
-        const metadataUpdates = req.body.metadata as Partial<BookMetadata>;
-        await storage.updateJob(jobId, {
-          metadata: { ...job.metadata!, ...metadataUpdates },
-        });
-      }
-
+      const metadataUpdates = req.body.metadata ? (req.body.metadata as Partial<BookMetadata>) : {};
       await storage.updateJob(jobId, {
+        metadata: { ...job.metadata!, ...metadataUpdates },
         selectedChapterIds,
         outputFormat,
         status: "downloading",
@@ -188,7 +137,8 @@ export async function registerRoutes(
         chaptersToDownload,
         concurrency,
         delay,
-        async (chapterId, status, content, wordCount, error) => {
+        job.metadata?.detectedContentType || "novel",
+        async (chapterId, status, content, wordCount, error, imageUrls) => {
           if (downloadControl.abort) return;
 
           const chapterStatus: DownloadStatusType = status === "downloading"
@@ -197,7 +147,7 @@ export async function registerRoutes(
             ? "complete"
             : "error";
 
-          await storage.updateChapterStatus(jobId, chapterId, chapterStatus, content, error);
+          await storage.updateChapterStatus(jobId, chapterId, chapterStatus, content, error, imageUrls);
 
           if (status === "complete" || status === "error") {
             completedCount++;
@@ -212,10 +162,10 @@ export async function registerRoutes(
               downloadSpeed: Math.round(speed * 1000),
               eta: Math.round(eta),
             });
-          }
 
-          if (completedCount === chaptersToDownload.length) {
-            await processAndGenerate(jobId, outputFormat);
+            if (completedCount === chaptersToDownload.length) {
+              await processAndGenerate(jobId, outputFormat);
+            }
           }
         }
       );
@@ -352,45 +302,6 @@ export async function registerRoutes(
       return res.status(404).json({ error: "Image not found" });
     }
 
-    res.setHeader("Content-Type", entry.mime);
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.send(entry.buffer);
-  });
-
-  app.get("/api/jobs/:id/image-status", (req: Request, res: Response) => {
-    const imageJob = getImageJob(req.params.id);
-    if (!imageJob) {
-      return res.status(404).json({ error: "Image job not found" });
-    }
-
-    res.json({
-      state: imageJob.state,
-      finalUrl: imageJob.finalUrl,
-      error: imageJob.error,
-      logs: imageJob.logs,
-      bytesDownloaded: imageJob.bytesDownloaded,
-      dataUrlLength: imageJob.dataUrlLength,
-      mimeType: imageJob.mimeType
-    });
-  });
-
-  app.get("/api/debug/image-pipeline/:id", (req: Request, res: Response) => {
-    const imageJob = getImageJob(req.params.id);
-    if (!imageJob) {
-      return res.status(404).json({ error: "Image job not found" });
-    }
-    res.json(imageJob);
-  });
-
-  // Proxy cached image endpoint
-  app.get("/api/image/:id", (req: Request, res: Response) => {
-    const imageCache = getImageCache();
-    const proxyId = req.params.id;
-    const entry = imageCache.get<{ buffer: Buffer; mime: string }>(proxyId);
-    if (!entry) {
-      return res.status(404).json({ error: "Image not found" });
-    }
     res.setHeader("Content-Type", entry.mime);
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -739,13 +650,50 @@ EXECUTE PROACTIVELY: When user says "download this", "convert to epub", "analyze
           const job = await storage.getJob(jobId);
           if (!job) return res.status(404).json({ error: "Job not found" });
           
-          const downloadSettings = { ...defaultSettings, ...settings };
+          const dSettings = { ...defaultSettings, ...settings };
           await storage.updateJob(jobId, {
             selectedChapterIds,
             outputFormat,
             status: "downloading",
             progress: 0,
           });
+
+          const downloadControl = { abort: false };
+          activeDownloads.set(jobId, downloadControl);
+
+          const chaptersToDownload = job.chapters.filter((ch) =>
+            selectedChapterIds.includes(ch.id)
+          );
+
+          downloadChaptersParallel(
+            chaptersToDownload,
+            dSettings.concurrentDownloads,
+            dSettings.delayBetweenRequests,
+            job.metadata?.detectedContentType || "novel",
+            async (chapterId, status, content, wordCount, error, imageUrls) => {
+              if (downloadControl.abort) return;
+
+              const chapterStatus: DownloadStatusType = status === "downloading"
+                ? "downloading"
+                : status === "complete"
+                ? "complete"
+                : "error";
+
+              await storage.updateChapterStatus(jobId, chapterId, chapterStatus, content, error, imageUrls);
+
+              const updatedJob = await storage.getJob(jobId);
+              if (updatedJob) {
+                const completedCount = updatedJob.chapters.filter(ch => ch.status === "complete" || ch.status === "error").length;
+                const progress = (completedCount / chaptersToDownload.length) * 100;
+                
+                await storage.updateJob(jobId, { progress });
+
+                if (completedCount === chaptersToDownload.length) {
+                  await processAndGenerate(jobId, outputFormat);
+                }
+              }
+            }
+          );
           
           return res.json({ success: true, message: "Download started", jobId });
         }

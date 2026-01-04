@@ -56,6 +56,7 @@ export interface BookMetadata {
   recommendedFormat: OutputFormatType;
   totalChapters: number;
   estimatedWordCount?: number;
+  imageJobId?: string;
 }
 
 export interface DownloadJob {
