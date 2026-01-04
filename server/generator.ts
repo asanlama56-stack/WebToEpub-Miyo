@@ -281,7 +281,7 @@ export async function generateEpub(
 
     chaptersWithContent.forEach((chapter, index) => {
       const xhtml = createChapterXhtml(chapter.title, chapter.content || "", chapter.imageUrls);
-      archive.append(xhtml, { name: \`OEBPS/chapter\${index}.xhtml\` });
+      archive.append(xhtml, { name: `OEBPS/chapter${index}.xhtml` });
     });
 
     archive.finalize();
